@@ -143,8 +143,14 @@ class trainingDataset(Dataset):
         # the first img comes from first row, and the second is either specially chosen related person or randomly chosen non-related person
         img0_info = self.relationships[index][0]
         img0_path = glob(str(self.imageFolderDataset.root / img0_info) + self.delim + "*.jpg")
-        img0_path = random.choice(img0_path)
-        # is it better to do that in advance?
+        if img0_path is None:
+            a=1
+        try:
+            img0_path = random.choice(img0_path)
+        except:
+            img0_path = random.choice(img0_path)
+
+# is it better to do that in advance?
         cand_relationships = [x for x in self.relationships if
                               x[0] == img0_info or x[1] == img0_info]  # found all candidates related to person in img0
         if cand_relationships == []:  # in case no relationship is mentioned. But it is useless here because I choose the first person line by line.
@@ -159,6 +165,8 @@ class trainingDataset(Dataset):
             else:
                 img1_info = img1_info[1]
             img1_path = glob(str(self.imageFolderDataset.root / img1_info) + self.delim + "*.jpg")  # randomly choose a img of this person
+            if img1_path is None:
+                a=1
             img1_path = random.choice(img1_path)
         else:  # 0 means non-related
             randChoose = True  # in case the chosen person is related to first person
