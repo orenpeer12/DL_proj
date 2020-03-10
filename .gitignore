@@ -131,3 +131,4 @@ dmypy.json
 # OREN
 .DS_Store
 .idea
+/data/
