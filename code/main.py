@@ -19,7 +19,7 @@ import sys
 from PIL import Image
 
 
-def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
+def printProgressBar (iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█', printEnd="\r"):
     """
     Call in a loop to create terminal progress bar
     @params:
@@ -89,8 +89,13 @@ def load_data(data_path, val_famillies="F09"):
             val_family_persons_tree[family_name][person] = []
         val_family_persons_tree[family_name][person].append(im_path)
 
+    ppl = [x.split(delim)[-3] + delim + x.split(delim)[-2] for x in all_images]
     all_relationships = pd.read_csv(str(data_path / "train_relationships.csv"))
-    all_relationships = list(zip(all_relationships.p1.values, all_relationships.p2.values))
+    all_relationships = list(zip(all_relationships.p1.values,
+                             all_relationships.p2.values))  # For a List like[p1 p2], zip can return a result like [(p1[0],p2[0]),(p1[1],p2[1]),...]
+    all_relationships = [x for x in all_relationships if x[0] in ppl and x[1] in ppl]  # filter unused relationships
+
+
     train_pairs = [x for x in all_relationships if val_famillies not in x[0]]
     val_pairs = [x for x in all_relationships if val_famillies in x[0]]
     # make sure no need to check x[1]
@@ -240,7 +245,7 @@ class SiameseNetwork(nn.Module):  # A simple implementation of siamese network, 
 
 # setting the seed
 np.random.seed(43)
-NUM_WORKERS = 1
+NUM_WORKERS = 0
 
 # Hyper params
 BATCH_SIZE = 64
@@ -249,7 +254,7 @@ IMG_SIZE = 100
 
 # Load data:
 val_families = "F09" # all families starts with this str will be sent to validation set.
-data_path = Path('C:\\Users\\Oren Peer\\Documents\\technion\\OneDrive - Technion\\Master\\DL_proj\\data\\faces') if sys.platform.startswith('win') \
+data_path = Path('..\\data\\faces') if sys.platform.startswith('win') \
     else    Path('/home/oren/PycharmProjects/DL_proj/data/faces/')
 
 train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs = load_data(data_path)
@@ -284,6 +289,7 @@ valloader = DataLoader(valset,
 # imshow(torchvision.utils.make_grid(concatenated))
 # print(example_batch[2].numpy())
 
+# net = SiameseNetwork()
 net = SiameseNetwork().cuda()
 criterion = nn.CrossEntropyLoss()  # use a Classification Cross-Entropy loss
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
