@@ -5,6 +5,7 @@ import pandas as pd
 from pathlib import Path
 import cv2
 import matplotlib.pyplot as plt
+import getpass
 
 import torch
 import torch.nn as nn
@@ -69,6 +70,7 @@ def load_data(data_path, val_famillies="F09"):
     num_val_images = len(val_images)
     train_family_persons_tree = {}
     val_family_persons_tree = {}
+    my_os = 'win' if sys.platform.startswith('win') else "linux"
     delim = '\\' if sys.platform.startswith('win') else "/"
 
     for im_path in train_images:
@@ -91,6 +93,10 @@ def load_data(data_path, val_famillies="F09"):
 
     ppl = [x.split(delim)[-3] + delim + x.split(delim)[-2] for x in all_images]
     all_relationships = pd.read_csv(str(data_path / "train_relationships.csv"))
+    if my_os == 'win':
+        for idx in range(len(all_relationships['p1'])):
+            all_relationships['p1'][idx] = all_relationships['p1'][idx].replace('/', "\\")
+            all_relationships['p2'][idx] = all_relationships['p2'][idx].replace('/', "\\")
     all_relationships = list(zip(all_relationships.p1.values,
                              all_relationships.p2.values))  # For a List like[p1 p2], zip can return a result like [(p1[0],p2[0]),(p1[1],p2[1]),...]
     all_relationships = [x for x in all_relationships if x[0] in ppl and x[1] in ppl]  # filter unused relationships
@@ -237,7 +243,7 @@ class SiameseNetwork(nn.Module):  # A simple implementation of siamese network, 
         output = F.relu(self.fc1(output))
         output = F.relu(self.fc2(output))
         output = self.fc3(output)
-        return output
+        return output.softmax(1)
 
 #########################
 ### code starts here! ###
@@ -254,8 +260,12 @@ IMG_SIZE = 100
 
 # Load data:
 val_families = "F09" # all families starts with this str will be sent to validation set.
-data_path = Path('..\\data\\faces') if sys.platform.startswith('win') \
-    else    Path('/home/oren/PycharmProjects/DL_proj/data/faces/')
+if getpass.getuser() == 'nirgreshler':
+    data_path = Path('E:\\DL_Course\\FacesInTheWild\\data\\faces') if sys.platform.startswith('win') \
+        else Path('../data/faces/')
+else:
+    data_path = Path('..\\data\\faces') if sys.platform.startswith('win') \
+        else Path('../data/faces/')
 
 train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs = load_data(data_path)
 # inspect_images_attributes(data_path) # All images are jpg, possible shapes:  {(224, 224, 3): 18661}
@@ -290,9 +300,9 @@ valloader = DataLoader(valset,
 # print(example_batch[2].numpy())
 
 # net = SiameseNetwork()
-net = SiameseNetwork().to(device)
+net = SiameseNetwork().to(device)  # TODO change to ResNet ?
 criterion = nn.CrossEntropyLoss()  # use a Classification Cross-Entropy loss
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)  # TODO change to Adam ?
 
 counter = []
 loss_history = []
