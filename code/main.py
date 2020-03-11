@@ -14,6 +14,7 @@ from torch import optim
 from torch.utils.data import DataLoader, Dataset
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
+from torchvision import models
 
 from glob import glob
 import sys
@@ -208,7 +209,10 @@ class trainingDataset(Dataset):
 class SiameseNetwork(nn.Module):  # A simple implementation of siamese network, ResNet50 is used, and then connected by three fc layer.
     def __init__(self):
         super(SiameseNetwork, self).__init__()
-        # self.cnn1 = models.resnet50(pretrained=True)#resnet50 doesn't work, might because pretrained model recognize all faces as the same.
+        # https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
+        # self.cnn1 = models.resnet50(pretrained=True) #resnet50 doesn't work, might because pretrained model recognize all faces as the same.
+        # for param in self.cnn1.parameters():
+        #     param.requires_grad = False
         self.cnn1 = nn.Sequential(
             nn.ReflectionPad2d(1),
             nn.Conv2d(3, 64, kernel_size=3),
