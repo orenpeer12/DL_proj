@@ -246,7 +246,7 @@ class SiameseNetwork(nn.Module):  # A simple implementation of siamese network, 
 # setting the seed
 np.random.seed(43)
 NUM_WORKERS = 0
-
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 # Hyper params
 BATCH_SIZE = 64
 NUMBER_EPOCHS = 100
@@ -290,7 +290,7 @@ valloader = DataLoader(valset,
 # print(example_batch[2].numpy())
 
 # net = SiameseNetwork()
-net = SiameseNetwork().cuda()
+net = SiameseNetwork().to(device)
 criterion = nn.CrossEntropyLoss()  # use a Classification Cross-Entropy loss
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
@@ -302,7 +302,7 @@ for epoch in range(0, NUMBER_EPOCHS):
     print("Epoch：", epoch, " start.")
     for i, data in enumerate(trainloader, 0):
         img0, img1, labels = data  # img=tensor[batch_size,channels,width,length], label=tensor[batch_size,label]
-        img0, img1, labels = img0.cuda(), img1.cuda(), labels.cuda()  # move to GPU
+        img0, img1, labels = img0.to(device), img1.to(device), labels.to(device)  # move to GPU
         # print("epoch：", epoch, "No." , i, "th inputs", img0.data.size(), "labels", labels.data.size())
         optimizer.zero_grad()  # clear the calculated grad in previous batch
         outputs = net(img0, img1)
