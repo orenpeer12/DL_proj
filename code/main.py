@@ -6,7 +6,7 @@ from pathlib import Path
 import cv2
 import matplotlib.pyplot as plt
 import getpass
-
+from torch.autograd import Variable
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -155,11 +155,7 @@ class trainingDataset(Dataset):
         # the first img comes from first row, and the second is either specially chosen related person or randomly chosen non-related person
         img0_info = self.relationships[index][0]
         img0_path = glob(str(self.imageFolderDataset.root / img0_info) + self.delim + "*.jpg")
-
-        try:
-            img0_path = random.choice(img0_path)
-        except:
-            img0_path = random.choice(img0_path)
+        img0_path = random.choice(img0_path)
 
 # is it better to do that in advance?
         cand_relationships = [x for x in self.relationships if
@@ -176,11 +172,7 @@ class trainingDataset(Dataset):
             else:
                 img1_info = img1_info[1]
             img1_path = glob(str(self.imageFolderDataset.root / img1_info) + self.delim + "*.jpg")  # randomly choose a img of this person
-
-            try:
-                img1_path = random.choice(img1_path)
-            except:
-                img1_path = random.choice(img1_path)
+            img1_path = random.choice(img1_path)
 
         else:  # 0 means non-related
             randChoose = True  # in case the chosen person is related to first person
@@ -208,46 +200,67 @@ class trainingDataset(Dataset):
 
 class SiameseNetwork(nn.Module):  # A simple implementation of siamese network, ResNet50 is used, and then connected by three fc layer.
     def __init__(self):
+        class Identity(nn.Module):
+            def __init__(self):
+                super().__init__()
+
+            def forward(self, x):
+                return x
+
         super(SiameseNetwork, self).__init__()
         # https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
         # self.cnn1 = models.resnet50(pretrained=True) #resnet50 doesn't work, might because pretrained model recognize all faces as the same.
         # for param in self.cnn1.parameters():
         #     param.requires_grad = False
-        self.cnn1 = nn.Sequential(
-            nn.ReflectionPad2d(1),
-            nn.Conv2d(3, 64, kernel_size=3),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(64),
-            nn.Dropout2d(p=.2),
+        # self.feat_ext = nn.Sequential(
+        #     nn.ReflectionPad2d(1),
+        #     nn.Conv2d(3, 64, kernel_size=3),
+        #     nn.ReLU(inplace=True),
+        #     nn.BatchNorm2d(64),
+        #     nn.Dropout2d(p=.2),
+        #
+        #     nn.ReflectionPad2d(1),
+        #     nn.Conv2d(64, 64, kernel_size=3),
+        #     nn.ReLU(inplace=True),
+        #     nn.BatchNorm2d(64),
+        #     nn.Dropout2d(p=.2),
+        #
+        #     nn.ReflectionPad2d(1),
+        #     nn.Conv2d(64, 32, kernel_size=3),
+        #     nn.ReLU(inplace=True),
+        #     nn.BatchNorm2d(32),
+        #     nn.Dropout2d(p=.2),
+        # )
+        ###
+        # self.feat_ext = models.resnet50(pretrained=True).to(device)
+        ############# ->
+        self.feat_ext = models.vgg16(pretrained=True)
+        for param in self.feat_ext.parameters():
+            param.requires_grad = False
 
-            nn.ReflectionPad2d(1),
-            nn.Conv2d(64, 64, kernel_size=3),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(64),
-            nn.Dropout2d(p=.2),
+        self.feat_ext.classifier[-1] = Identity()
 
-            nn.ReflectionPad2d(1),
-            nn.Conv2d(64, 32, kernel_size=3),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(32),
-            nn.Dropout2d(p=.2),
-        )
-        self.fc1 = nn.Linear(2 * 32 * 100 * 100, 500)
+        self.classifier = nn.Sequential(
+            nn.Linear(2*4096, 256),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(256, 1),
+            nn.Sigmoid())
+
+        ############# <-
         # self.fc1 = nn.Linear(2*1000, 500)
-        self.fc2 = nn.Linear(500, 500)
-        self.fc3 = nn.Linear(500, 2)
+        # self.fc2 = nn.Linear(500, 256)
+        # self.fc3 = nn.Linear(256, 1)
 
     def forward(self, input1, input2):  # did not know how to let two resnet share the same param.
-        output1 = self.cnn1(input1)
-        output1 = output1.view(output1.size()[0], -1)  # make it suitable for fc layer.
-        output2 = self.cnn1(input2)
-        output2 = output2.view(output2.size()[0], -1)
+        feat1 = self.feat_ext(input1)
+        feat1 = feat1.view(feat1.size()[0], -1)  # make it suitable for fc layer.
+        feat2 = self.feat_ext(input2)
+        feat2 = feat2.view(feat2.size()[0], -1)  # make it suitable for fc layer.
+        output = torch.cat((feat1, feat2), 1)
+        output = self.classifier(output)
 
-        output = torch.cat((output1, output2), 1)
-        output = F.relu(self.fc1(output))
-        output = F.relu(self.fc2(output))
-        output = self.fc3(output)
-        return output.softmax(1)
+        return output
 
 #########################
 ### code starts here! ###
@@ -261,6 +274,50 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 BATCH_SIZE = 64
 NUMBER_EPOCHS = 100
 IMG_SIZE = 100
+# original transform:
+# normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+#                                  std=[0.229, 0.224, 0.225])
+# image_transforms = {
+#     'train':
+#     transforms.Compose([
+#         transforms.Resize((224,224)),
+#         transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)),
+#         transforms.RandomHorizontalFlip(),
+#         transforms.ToTensor(),
+#         normalize
+#     ]),
+#     'validation':
+#     transforms.Compose([
+#         transforms.Resize((224,224)),
+#         transforms.ToTensor(),
+#         normalize
+#     ]),
+# }
+#
+# image_transforms = transforms.Compose(
+#     [transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+
+# Image transformations
+image_transforms = {
+    # Train uses data augmentation
+    'train':
+    transforms.Compose([
+        transforms.RandomRotation(degrees=15),
+        transforms.ColorJitter(),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406],
+                             [0.229, 0.224, 0.225])
+    ]),
+    # Validation does not use augmentation
+    'valid':
+    transforms.Compose([
+        transforms.Resize(size=256),
+        transforms.CenterCrop(size=224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+}
 
 # Load data:
 val_families = "F09" # all families starts with this str will be sent to validation set.
@@ -278,8 +335,7 @@ folder_dataset = dset.ImageFolder(root=data_path / 'train')
 # Transforms are common image transformations. They can be chained together using Compose.
 trainset = trainingDataset(imageFolderDataset=folder_dataset,
                                         relationships=train_pairs,
-                                        transform=transforms.Compose([transforms.Resize((IMG_SIZE, IMG_SIZE)),
-                                                                      transforms.ToTensor()]))
+                                        transform=image_transforms["train"])
 trainloader = DataLoader(trainset,
                         shuffle=True,
                         num_workers=NUM_WORKERS,
@@ -287,8 +343,7 @@ trainloader = DataLoader(trainset,
 
 valset = trainingDataset(imageFolderDataset=folder_dataset,
                                         relationships=val_pairs,
-                                        transform=transforms.Compose([transforms.Resize((IMG_SIZE,IMG_SIZE)),
-                                                                      transforms.ToTensor()]))
+                                        transform=image_transforms["valid"])
 valloader = DataLoader(valset,
                         shuffle=True,
                         num_workers=NUM_WORKERS,
@@ -305,7 +360,8 @@ valloader = DataLoader(valset,
 
 # net = SiameseNetwork()
 net = SiameseNetwork().to(device)  # TODO change to ResNet ?
-criterion = nn.CrossEntropyLoss()  # use a Classification Cross-Entropy loss
+# criterion = nn.CrossEntropyLoss()  # use a Classification Cross-Entropy loss
+criterion = nn.BCELoss()  # use a Classification Cross-Entropy loss
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)  # TODO change to Adam ?
 
 counter = []
@@ -320,7 +376,7 @@ for epoch in range(0, NUMBER_EPOCHS):
         # print("epoch：", epoch, "No." , i, "th inputs", img0.data.size(), "labels", labels.data.size())
         optimizer.zero_grad()  # clear the calculated grad in previous batch
         outputs = net(img0, img1)
-        loss = criterion(outputs, labels)
+        loss = criterion(outputs.view(-1), labels.float())
         loss.backward()
         optimizer.step()
         if i % 10 == 0:  # show changes of loss value after each 10 batches
