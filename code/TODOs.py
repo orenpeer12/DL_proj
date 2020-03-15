@@ -9,5 +9,10 @@
 # TODO change optimizer to ADAM
 
 # TODO add data augmentation
+
 # TODO add sigmoid to nn output
-# TODO change to ResNet arch. ?
+
+# TODO change to ResNet arch?
+
+# TODO initialize NN properly
+

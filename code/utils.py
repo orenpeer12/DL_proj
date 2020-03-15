@@ -1,6 +1,6 @@
 import sys
 from glob import glob
-
+from collections import defaultdict
 import cv2
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -59,6 +59,15 @@ def load_data(data_path, val_famillies="F09"):
     my_os = 'win' if sys.platform.startswith('win') else "linux"
     delim = '\\' if sys.platform.startswith('win') else "/"
 
+    # train_person_to_images_map = defaultdict(list)
+    ppl = [x.split(delim)[-3] + delim + x.split(delim)[-2] for x in all_images]
+
+    # for x in train_images:
+    #     train_person_to_images_map[x.split(delim)[-3] + delim + x.split(delim)[-2]].append(x)
+    # val_person_to_images_map = defaultdict(list)
+    # for x in val_images:
+    #     val_person_to_images_map[x.split(delim)[-3] + delim + x.split(delim)[-2]].append(x)
+
     for im_path in train_images:
         family_name = im_path.split(delim)[-3]
         person = im_path.split(delim)[-2]
@@ -77,17 +86,14 @@ def load_data(data_path, val_famillies="F09"):
             val_family_persons_tree[family_name][person] = []
         val_family_persons_tree[family_name][person].append(im_path)
 
-    ppl = [x.split(delim)[-3] + delim + x.split(delim)[-2] for x in all_images]
     all_relationships = pd.read_csv(str(data_path / "train_relationships.csv"))
     if my_os == 'win':
         for idx in range(len(all_relationships['p1'])):
             all_relationships['p1'][idx] = all_relationships['p1'][idx].replace('/', "\\")
             all_relationships['p2'][idx] = all_relationships['p2'][idx].replace('/', "\\")
     all_relationships = list(zip(all_relationships.p1.values,
-                             all_relationships.p2.values))  # For a List like[p1 p2], zip can return a result like [(p1[0],p2[0]),(p1[1],p2[1]),...]
+                             all_relationships.p2.values))
     all_relationships = [x for x in all_relationships if x[0] in ppl and x[1] in ppl]  # filter unused relationships
-
-
     train_pairs = [x for x in all_relationships if val_famillies not in x[0]]
     val_pairs = [x for x in all_relationships if val_famillies in x[0]]
     # make sure no need to check x[1]

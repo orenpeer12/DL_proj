@@ -1,7 +1,7 @@
 import random
 import sys
 from glob import glob
-
+import cv2
 from PIL import Image
 from torch.utils.data import Dataset
 
@@ -12,25 +12,27 @@ class TrainDataset(Dataset):
     Hence, they can all be passed to a torch.utils.data.DataLoader which can load multiple samples
     parallelly using torch.multiprocessing workers
     """
-    def __init__(self, imageFolderDataset, relationships, transform=None):
+    def __init__(self, imageFolderDataset, relationships, familise_trees, transform=None):
         self.imageFolderDataset = imageFolderDataset
         self.relationships = relationships  # choose either train or val dataset to use
         self.transform = transform
         self.delim = '\\' if sys.platform.startswith('win') else "/"
+        self.familise_trees = familise_trees
 
     def __getitem__(self, index):
         # Returns two images and whether they are related.
         # for each relationship in train_relationships.csv,
         # the first img comes from first row, and the second is either specially chosen related person or randomly chosen non-related person
         img0_info = self.relationships[index][0]
-        img0_path = glob(str(self.imageFolderDataset.root / img0_info) + self.delim + "*.jpg")
-        img0_path = random.choice(img0_path)
+        family0, person0 = img0_info.split(self.delim)
+        # img0_path = glob(str(self.imageFolderDataset.root / img0_info) + self.delim + "*.jpg")
+        img0_path = random.choice(self.familise_trees[family0][person0])
 
-# is it better to do that in advance?
+        # cand_relationships = self.familise_trees[img0_info]
         cand_relationships = [x for x in self.relationships if
                               x[0] == img0_info or x[1] == img0_info]  # found all candidates related to person in img0
         if cand_relationships == []:  # in case no relationship is mentioned. But it is useless here because I choose the first person line by line.
-            relative_label = 0 # no matter what image we feed in, it is not related...
+            relative_label = 0  # no matter what image we feed in, it is not related...
         else:
             relative_label = random.randint(0, 1)    # 50% of sampling a relative
 
@@ -40,9 +42,8 @@ class TrainDataset(Dataset):
                 img1_info = img1_info[0]
             else:
                 img1_info = img1_info[1]
-            img1_path = glob(str(self.imageFolderDataset.root / img1_info) + self.delim + "*.jpg")  # randomly choose a img of this person
-            img1_path = random.choice(img1_path)
-
+            family1, person1 = img1_info.split(self.delim)
+            img1_path = random.choice(self.familise_trees[family1][person1])
         else:  # 0 means non-related
             randChoose = True  # in case the chosen person is related to first person
             while randChoose:
@@ -55,7 +56,10 @@ class TrainDataset(Dataset):
                         break
 
         img0 = Image.open(img0_path)
+        # img0 = cv2.imread(img0_path)/256
+
         img1 = Image.open(img1_path)
+        # img1 = cv2.imread(img1_path)/256
 
         if self.transform is not None:  # I think the transform is essential if you want to use GPU, because you have to trans data to tensor first.
             img0 = self.transform(img0)
