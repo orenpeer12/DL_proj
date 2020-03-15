@@ -1,8 +1,10 @@
+import numpy as np  # linear algebra
+import pandas as pd  # data processing, CSV file I/O (e.g. pd.read_csv)
+import os
 import sys
 from glob import glob
 from collections import defaultdict
 import cv2
-import pandas as pd
 import matplotlib.pyplot as plt
 
 
@@ -102,7 +104,7 @@ def load_data(data_path, val_famillies="F09"):
     print("Total train images:", num_train_images)
     print("Total val images:", num_val_images)
     print("Dataset size: ", num_val_images + num_train_images)
-    print("#########################################\n#########################################")
+    print("#########################################")
 
     return train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs
 
@@ -126,3 +128,22 @@ def imshow(img, text=None, should_save=False):#for showing the data you loaded t
 def show_plot(iteration,loss):# for showing loss value changed with iter
     plt.plot(iteration,loss)
     plt.show()
+
+def extract_diff_str(train_history):
+    epoch = len(train_history['train_loss'])
+    train_loss_diff = train_history['train_loss'][-1] - train_history['train_loss'][-2] if epoch > 1 else 0
+    val_loss_diff = train_history['val_loss'][-1] - train_history['val_loss'][-2] if epoch > 1 else 0
+    train_acc_diff = train_history['train_acc'][-1] - train_history['train_acc'][-2] if epoch > 1 else 0
+    val_acc_diff = train_history['val_acc'][-1] - train_history['val_acc'][-2] if epoch > 1 else 0
+
+    train_loss_diff = '(+{:.6f})'.format(train_loss_diff) if train_loss_diff >= 0 else '({:.6f})'.format(train_loss_diff)
+    val_loss_diff = '(+{:.6f})'.format(val_loss_diff) if val_loss_diff >= 0 else '({:.6f})'.format(val_loss_diff)
+    train_acc_diff = '(+{:.4f})'.format(train_acc_diff) if train_acc_diff >= 0 else '({:.4f})'.format(train_acc_diff)
+    val_acc_diff = '(+{:.4f})'.format(val_acc_diff) if val_acc_diff >= 0 else '({:.4f})'.format(val_acc_diff)
+
+    return train_loss_diff, val_loss_diff, train_acc_diff, val_acc_diff
+
+def create_submition(results, sampe_submition_path):
+    df_submit = pd.read_csv(sampe_submition_path)
+    df_submit.is_related = results
+    df_submit.to_csv('submission.csv', index=False)

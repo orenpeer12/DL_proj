@@ -57,10 +57,13 @@ class TrainDataset(Dataset):
 
         img0 = Image.open(img0_path)
         # img0 = cv2.imread(img0_path)/256
-
+        # img0 = img0.astype('float32')
         img1 = Image.open(img1_path)
         # img1 = cv2.imread(img1_path)/256
+        # img1 = img1.astype('float32')
 
+        # img0 = (img0 - img0.mean(axis=(0, 1))) / img0.std(axis=(0,1))
+        # img0 = (img0 * self.transform.transforms[-1].std)
         if self.transform is not None:  # I think the transform is essential if you want to use GPU, because you have to trans data to tensor first.
             img0 = self.transform(img0)
             img1 = self.transform(img1)
