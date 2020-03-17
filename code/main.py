@@ -25,7 +25,7 @@ CREATE_SUBMISSION = True
 hyper_params = {
     "lr": 1e-3,
     "BATCH_SIZE": 128,
-    "NUMBER_EPOCHS": 2,
+    "NUMBER_EPOCHS": 100,
     "weight_decay": 1e-4
 }
 print("Hyper parameters:", hyper_params)
