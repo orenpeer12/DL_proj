@@ -6,10 +6,6 @@
 
 # TODO normalize data. notice that we have both black&white images and color ones! pre-process?
 
-# TODO change optimizer to ADAM
-
-# TODO add data augmentation
-
 # TODO add sigmoid to nn output
 
 # TODO change to ResNet arch?

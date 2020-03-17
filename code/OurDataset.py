@@ -6,7 +6,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 
-class TrainDataset(Dataset):
+class OurDataset(Dataset):
     """
     All datasets are subclasses of torch.utils.data.Dataset i.e, they have __getitem__ and __len__ methods implemented.
     Hence, they can all be passed to a torch.utils.data.DataLoader which can load multiple samples
@@ -72,3 +72,38 @@ class TrainDataset(Dataset):
 
     def __len__(self):
         return len(self.relationships)  # essential for choose the num of data in one epoch
+
+
+class TestDataset(Dataset):
+
+    def __init__(self, df, root_dir, transform=None):
+        self.relations = df
+        self.root_dir = root_dir
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.relations)
+
+    def __getpair__(self, idx):
+        # pair = self.root_dir + self.relations.iloc[idx, 2], \
+        #        self.root_dir + self.relations.iloc[idx, 3]
+        pair = self.relations.iloc[idx].img_pair.split('-')
+        pair = [self.root_dir / p for p in pair]
+        return pair
+
+    def __getlabel__(self, idx):
+        return self.relations.iloc[idx, 4]
+
+    def __getitem__(self, idx):
+        pair = self.__getpair__(idx)
+
+        img0 = Image.open(pair[0])
+        img1 = Image.open(pair[1])
+        #         img0 = img0.convert("L")
+        #         img1 = img1.convert("L")
+
+        if self.transform is not None:
+            img0 = self.transform(img0)
+            img1 = self.transform(img1)
+
+        return idx, img0, img1

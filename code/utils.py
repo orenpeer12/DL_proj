@@ -1,11 +1,17 @@
-import numpy as np  # linear algebra
-import pandas as pd  # data processing, CSV file I/O (e.g. pd.read_csv)
+import pandas as pd
+import numpy as np
 import os
+from pathlib import Path
 import sys
 from glob import glob
-from collections import defaultdict
-import cv2
 import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
+from shutil import copyfile
+import torch
+from torch.utils.data import DataLoader
+from OurDataset import *
+from SiameseNetwork import *
 
 
 def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█', printEnd="\r"):
@@ -125,9 +131,18 @@ def imshow(img, text=None, should_save=False):#for showing the data you loaded t
     plt.show()
 
 
-def show_plot(iteration,loss):# for showing loss value changed with iter
-    plt.plot(iteration,loss)
+def show_plot(train_history):# for showing loss value changed with iter
+    f, (ax1, ax2) = plt.subplots(1, 2, sharex=True)
+    ax1.plot(train_history['train_loss'])
+    ax1.plot(train_history['val_loss'])
+    ax1.set_title('Loss curves')
+    ax1.legend(['train', 'validation'])
+    ax2.plot(train_history['train_acc'])
+    ax2.plot(train_history['val_acc'])
+    ax2.set_title('Acc. curves')
+    ax2.legend(['train', 'validation'])
     plt.show()
+
 
 def extract_diff_str(train_history):
     epoch = len(train_history['train_loss'])
@@ -143,7 +158,61 @@ def extract_diff_str(train_history):
 
     return train_loss_diff, val_loss_diff, train_acc_diff, val_acc_diff
 
-def create_submition(results, sampe_submition_path):
-    df_submit = pd.read_csv(sampe_submition_path)
-    df_submit.is_related = results
-    df_submit.to_csv('submission.csv', index=False)
+
+def create_submission(root_path, model_name, transform, net=None):
+    # gpu or cpu:
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+    # get the sample submission file for loading pairs, and create the new submission file.
+    sampe_submission_path = root_path / 'data' / 'faces' / 'sample_submission.csv'
+    dst_submission_path = root_path / 'submissions_files' / model_name.replace('.pt', '.csv')
+    copyfile(sampe_submission_path, dst_submission_path)
+    df_submit = pd.read_csv(str(dst_submission_path))
+
+    # create the testset and data loader:
+    testset = TestDataset(df=df_submit, root_dir=root_path / 'data' / 'faces' / 'test', transform=transform)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=32)
+
+    # if needed, load model:
+    if net is None:
+        model_time = model_name.split('_')[0]
+        net = SiameseNetwork(model_time).to(device)
+        net.load_state_dict(torch.load(root_path / 'models' / model_time / model_name))
+
+    # pass testset through model:
+    net.eval()
+    for i, data in enumerate(test_loader, 0):
+        row, img0, img1 = data
+        row, img0, img1 = row.cuda(), img0.cuda(), img1.cuda()
+
+        output = net(img0, img1)
+        _, pred = torch.max(output, 1)
+
+        count = 0
+        for idx, item in enumerate(row.cpu()):
+            df_submit.loc[item.item(), 'is_related'] = pred[idx].item()
+
+    # write submission
+    df_submit['is_related'].value_counts()
+
+    res = df_submit.to_csv(dst_submission_path, index=False)
+
+def get_best_model(model_folder, measure='val_acc'):
+    all_models = [m for m in os.listdir(model_folder) if m.endswith('.pt')]
+    measures = []
+    for m in all_models:
+        if measure == 'val_acc':
+            mod_measure = float(m.split('_')[3].split('.pt')[0].split('va')[-1])
+        if measure == 'val_loss':
+            mod_measure = float(m.split('_')[2].split('vl')[-1])
+        measures.append(mod_measure)
+    best_model_idx = np.argmax(measures)
+    return all_models[best_model_idx]
+
+# root_path = Path('/home/oren/PycharmProjects/DL_proj')
+# model_name = "1584439576_e0_vl0.6883_va53.04.pt"
+# transform = transforms.Compose([
+#     transforms.ToTensor(),
+#     transforms.Normalize([0.485, 0.456, 0.406],
+#                          [0.229, 0.224, 0.225])])
+# create_submission(root_path=root_path, model_name=model_name, transform=transform)
