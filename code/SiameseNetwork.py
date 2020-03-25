@@ -3,6 +3,7 @@ from torch import nn
 from torchvision import models
 import numpy as np
 # import torch.functional as F
+from torch.nn.init import kaiming_normal_
 
 class SiameseNetwork(nn.Module):  # A simple implementation of siamese network, ResNet50 is used, and then connected by three fc layer.
 
@@ -63,6 +64,126 @@ class SiameseNetwork(nn.Module):  # A simple implementation of siamese network, 
     def eval(self):
         self.feat_ext.eval()
         self.classifier.eval()
+
+
+class ConvBlock(nn.Module):
+
+    def __init__(self, input_dim=128, n_filters=256, kernel_size=3, padding=1, stride=1, shortcut=False,
+                 downsampling=None):
+        super(ConvBlock, self).__init__()
+
+        self.downsampling = downsampling
+        self.shortcut = shortcut
+        self.conv1 = nn.Conv1d(input_dim, n_filters, kernel_size=kernel_size, padding=padding, stride=stride)
+        self.batchnorm1 = nn.BatchNorm1d(n_filters)
+        self.relu1 = nn.ReLU()
+        self.conv2 = nn.Conv1d(n_filters, n_filters, kernel_size=kernel_size, padding=padding, stride=stride)
+        self.batchnorm2 = nn.BatchNorm1d(n_filters)
+        self.relu2 = nn.ReLU()
+
+    def forward(self, input):
+
+        residual = input
+        output = self.conv1(input)
+        output = self.batchnorm1(output)
+        output = self.relu1(output)
+        output = self.conv2(output)
+        output = self.batchnorm2(output)
+
+        if self.shortcut:
+            if self.downsampling is not None:
+                residual = self.downsampling(input)
+            output += residual
+
+        output = self.relu2(output)
+
+        return output
+
+
+class VDCNN(nn.Module):
+
+    def __init__(self, model_time, n_classes=2, num_embedding=69, embedding_dim=16, depth=9, n_fc_neurons=2048, shortcut=False):
+        super(VDCNN, self).__init__()
+        self.name = str(model_time)
+        layers = []
+        fc_layers = []
+        base_num_features = 64
+
+        # self.embed = nn.Embedding(num_embedding, embedding_dim, padding_idx=0, max_norm=None,
+        #                           norm_type=2, scale_grad_by_freq=False, sparse=False)
+
+        layers.append(nn.Conv1d(embedding_dim, base_num_features, kernel_size=3, padding=1))
+
+        if depth == 9:
+            num_conv_block = [0, 0, 0, 0]
+        elif depth == 17:
+            num_conv_block = [1, 1, 1, 1]
+        elif depth == 29:
+            num_conv_block = [4, 4, 1, 1]
+        elif depth == 49:
+            num_conv_block = [7, 7, 4, 2]
+
+        layers.append(ConvBlock(input_dim=base_num_features, n_filters=base_num_features, kernel_size=3, padding=1,
+                                shortcut=shortcut))
+        for _ in range(num_conv_block[0]):
+            layers.append(ConvBlock(input_dim=base_num_features, n_filters=base_num_features, kernel_size=3, padding=1,
+                                    shortcut=shortcut))
+        layers.append(nn.MaxPool1d(kernel_size=3, stride=2, padding=1))
+
+        ds = nn.Sequential(nn.Conv1d(base_num_features, 2 * base_num_features, kernel_size=1, stride=1, bias=False),
+                           nn.BatchNorm1d(2 * base_num_features))
+        layers.append(
+            ConvBlock(input_dim=base_num_features, n_filters=2 * base_num_features, kernel_size=3, padding=1,
+                      shortcut=shortcut, downsampling=ds))
+        for _ in range(num_conv_block[1]):
+            layers.append(
+                ConvBlock(input_dim=2 * base_num_features, n_filters=2 * base_num_features, kernel_size=3, padding=1,
+                          shortcut=shortcut))
+        layers.append(nn.MaxPool1d(kernel_size=3, stride=2, padding=1))
+
+        ds = nn.Sequential(nn.Conv1d(2 * base_num_features, 4 * base_num_features, kernel_size=1, stride=1, bias=False),
+                           nn.BatchNorm1d(4 * base_num_features))
+        layers.append(
+            ConvBlock(input_dim=2 * base_num_features, n_filters=4 * base_num_features, kernel_size=3, padding=1,
+                      shortcut=shortcut, downsampling=ds))
+        for _ in range(num_conv_block[2]):
+            layers.append(
+                ConvBlock(input_dim=4 * base_num_features, n_filters=4 * base_num_features, kernel_size=3, padding=1,
+                          shortcut=shortcut))
+        layers.append(nn.MaxPool1d(kernel_size=3, stride=2, padding=1))
+
+        ds = nn.Sequential(nn.Conv1d(4 * base_num_features, 8 * base_num_features, kernel_size=1, stride=1, bias=False),
+                           nn.BatchNorm1d(8 * base_num_features))
+        layers.append(
+            ConvBlock(input_dim=4 * base_num_features, n_filters=8 * base_num_features, kernel_size=3, padding=1,
+                      shortcut=shortcut, downsampling=ds))
+        for _ in range(num_conv_block[3]):
+            layers.append(
+                ConvBlock(input_dim=8 * base_num_features, n_filters=8 * base_num_features, kernel_size=3, padding=1,
+                          shortcut=shortcut))
+
+        layers.append(nn.AdaptiveMaxPool1d(8))
+        fc_layers.extend([nn.Linear(8 * 8 * base_num_features, n_fc_neurons), nn.ReLU()])
+        fc_layers.extend([nn.Linear(n_fc_neurons, n_fc_neurons), nn.ReLU()])
+        fc_layers.extend([nn.Linear(n_fc_neurons, n_classes)])
+
+        self.layers = nn.Sequential(*layers)
+        self.fc_layers = nn.Sequential(*fc_layers)
+        self.__init_weights()
+
+    def __init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
+
+    def forward(self, input1, input2):
+        output = torch.cat((input1, input2), dim=2)
+        # output = output.transpose(1, 2)
+        output = self.layers(output)
+        output = output.view(output.size(0), -1)
+        output = self.fc_layers(output)
+
+        return output
 
 
 class SiameseNetwork2(nn.Module):
@@ -177,17 +298,80 @@ class SiameseNetwork2(nn.Module):
         output = self.fc9(difference)
         return output
 
-#
-# def vgg_face_dag(weights_path=None, **kwargs):
-#     """
-#     load imported model instance
-#
-#     Args:
-#         weights_path (str): If set, loads model weights from the given path
-#     """
-#     model = Vgg_face_dag()
-#     if weights_path:
-#         state_dict = torch.load(weights_path)
-#         model.load_state_dict(state_dict)
-#     return model
+
+# Residual block
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, stride=1, downsample=None):
+        super(ResidualBlock, self).__init__()
+        self.conv1 = conv3x3(in_channels, out_channels, stride)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = conv3x3(out_channels, out_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.downsample = downsample
+
+    def forward(self, x):
+        residual = x
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        if self.downsample:
+            residual = self.downsample(x)
+        out += residual
+        out = self.relu(out)
+        return out
+
+def conv3x3(in_channels, out_channels, stride=1):
+    return nn.Conv2d(in_channels, out_channels, kernel_size=3,
+                     stride=stride, padding=1, bias=False)
+# ResNet
+class ResNet(nn.Module):
+    def __init__(self, block, layers, num_classes=2):
+        super(ResNet, self).__init__()
+        self.in_channels = 16
+        self.conv = conv3x3(3, 16)
+        self.bn = nn.BatchNorm2d(16)
+        self.relu = nn.ReLU(inplace=True)
+        self.layer1 = self.make_layer(block, 16, layers[0])
+        self.layer2 = self.make_layer(block, 32, layers[1], 2)
+        self.layer3 = self.make_layer(block, 64, layers[2], 2)
+        self.avg_pool = nn.AvgPool2d(8)
+        # self.fc = nn.Linear(1344, num_classes)
+        self.fc = nn.Linear(6272, num_classes)
+        # Print model parameters
+        trainable_model_parameters = filter(lambda p: p.requires_grad, self.parameters())
+        non_trainable_model_parameters = filter(lambda p: not (p.requires_grad), self.parameters())
+        trainable_params = sum([np.prod(p.size()) for p in trainable_model_parameters])
+        non_trainable_params = sum([np.prod(p.size()) for p in non_trainable_model_parameters])
+        print("Num. of trainable parameters: {:,}, num. of frozen parameters: {:,}, total: {:,}".format(
+            trainable_params, non_trainable_params, trainable_params + non_trainable_params))
+
+    def make_layer(self, block, out_channels, blocks, stride=1):
+        downsample = None
+        if (stride != 1) or (self.in_channels != out_channels):
+            downsample = nn.Sequential(
+                conv3x3(self.in_channels, out_channels, stride=stride),
+                nn.BatchNorm2d(out_channels))
+        layers = []
+        layers.append(block(self.in_channels, out_channels, stride, downsample))
+        self.in_channels = out_channels
+        for i in range(1, blocks):
+            layers.append(block(out_channels, out_channels))
+        return nn.Sequential(*layers)
+
+    def forward(self, input1, input2):
+        x = torch.cat((input1, input2), dim=2)
+        out = self.conv(x)
+        out = self.bn(out)
+        out = self.relu(out)
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = self.avg_pool(out)
+        out = out.view(out.size(0), -1)
+        out = self.fc(out)
+        return out
+
 

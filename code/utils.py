@@ -132,6 +132,9 @@ def imshow(img, text=None, should_save=False):#for showing the data you loaded t
 
 
 def show_plot(train_history):# for showing loss value changed with iter
+    plt.ion()
+    if not isinstance(train_history, dict):
+        train_history = np.load(train_history, allow_pickle=True).item()
     f, (ax1, ax2) = plt.subplots(1, 2, sharex=True)
     ax1.plot(train_history['train_loss'])
     ax1.plot(train_history['val_loss'])
@@ -186,9 +189,9 @@ def create_submission(root_path, model_name, transform, net=None):
         row, img0, img1 = row.cuda(), img0.cuda(), img1.cuda()
 
         output = net(img0, img1)
-        _, pred = torch.max(output, 1)
+        sm = output.softmax(dim=1)
+        _, pred = torch.max(sm, 1)
 
-        count = 0
         for idx, item in enumerate(row.cpu()):
             df_submit.loc[item.item(), 'is_related'] = pred[idx].item()
 
@@ -196,6 +199,7 @@ def create_submission(root_path, model_name, transform, net=None):
     df_submit['is_related'].value_counts()
 
     res = df_submit.to_csv(dst_submission_path, index=False)
+
 
 def get_best_model(model_folder, measure='val_acc'):
     all_models = [m for m in os.listdir(model_folder) if m.endswith('.pt')]
@@ -216,3 +220,7 @@ def get_best_model(model_folder, measure='val_acc'):
 #     transforms.Normalize([0.485, 0.456, 0.406],
 #                          [0.229, 0.224, 0.225])])
 # create_submission(root_path=root_path, model_name=model_name, transform=transform)
+
+def update_lr(optimizer, lr):
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr

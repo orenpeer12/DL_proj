@@ -4,7 +4,8 @@ from glob import glob
 import cv2
 from PIL import Image
 from torch.utils.data import Dataset
-
+import numpy as np
+from torch.utils.data import DataLoader
 
 class OurDataset(Dataset):
     """
@@ -56,15 +57,12 @@ class OurDataset(Dataset):
                         break
 
         img0 = Image.open(img0_path)
-        # img0 = cv2.imread(img0_path)/256
-        # img0 = img0.astype('float32')
         img1 = Image.open(img1_path)
-        # img1 = cv2.imread(img1_path)/256
-        # img1 = img1.astype('float32')
 
-        # img0 = (img0 - img0.mean(axis=(0, 1))) / img0.std(axis=(0,1))
-        # img0 = (img0 * self.transform.transforms[-1].std)
-        if self.transform is not None:  # I think the transform is essential if you want to use GPU, because you have to trans data to tensor first.
+        # img0 = np.array(img0, dtype=np.int64)  # TODO
+        # img1 = np.array(img1, dtype=np.int64)  # TODO
+
+        if self.transform is not None:
             img0 = self.transform(img0)
             img1 = self.transform(img1)
 
@@ -107,3 +105,28 @@ class TestDataset(Dataset):
             img1 = self.transform(img1)
 
         return idx, img0, img1
+
+
+def create_datasets(folder_dataset, train_pairs, val_pairs, image_transforms, train_family_persons_tree,
+                    val_family_persons_tree, hyper_params, NUM_WORKERS):
+    trainset = OurDataset(imageFolderDataset=folder_dataset,
+                          relationships=train_pairs,
+                          transform=image_transforms["train"],
+                          familise_trees=train_family_persons_tree)
+
+    trainloader = DataLoader(trainset,
+                             shuffle=True,
+                             num_workers=NUM_WORKERS,
+                             batch_size=hyper_params["BATCH_SIZE"])
+
+    valset = OurDataset(imageFolderDataset=folder_dataset,
+                        relationships=val_pairs,
+                        transform=image_transforms["valid"],
+                        familise_trees=val_family_persons_tree)
+
+    valloader = DataLoader(valset,
+                           shuffle=True,
+                           num_workers=NUM_WORKERS,
+                           batch_size=hyper_params["BATCH_SIZE"])
+
+    return trainloader, valloader

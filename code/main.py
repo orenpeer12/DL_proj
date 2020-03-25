@@ -6,7 +6,6 @@ import getpass
 import torch
 import torch.nn as nn
 from torch import optim
-from torch.utils.data import DataLoader
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 from OurDataset import *
@@ -15,7 +14,7 @@ from utils import *
 import json
 # setting the seed
 # np.random.seed(43)
-NUM_WORKERS = 0
+NUM_WORKERS = 4
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 SAVE_MODELS = True
@@ -23,10 +22,14 @@ CREATE_SUBMISSION = True
 
 # Hyper params
 hyper_params = {
-    "lr": 1e-3,
-    "BATCH_SIZE": 128,
+    "init_lr": 1e-3,
+    "BATCH_SIZE": 32,
     "NUMBER_EPOCHS": 100,
-    "weight_decay": 1e-4
+    "weight_decay": 0,
+    "decay_lr": True,
+    "lr_decay_factor": 0.5,
+    "lr_decay_rate": 10,  # decay every X epochs
+    "min_lr": 1e-6  #
 }
 print("Hyper parameters:", hyper_params)
 
@@ -51,7 +54,7 @@ image_transforms = {
                              [0.229, 0.224, 0.225])
     ]),
 }
-
+# image_transforms = {"train": None, "valid": None}
 # Load data:
 # \\data\\faces
 
@@ -76,26 +79,9 @@ train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs = loa
 
 folder_dataset = dset.ImageFolder(root=data_path / 'train')
 
-trainset = OurDataset(imageFolderDataset=folder_dataset,
-                      relationships=train_pairs,
-                      transform=image_transforms["train"],
-                      familise_trees=train_family_persons_tree)
-
-trainloader = DataLoader(trainset,
-                         shuffle=True,
-                         num_workers=NUM_WORKERS,
-                         batch_size=hyper_params["BATCH_SIZE"])
-
-valset = OurDataset(imageFolderDataset=folder_dataset,
-                    relationships=val_pairs,
-                    transform=image_transforms["valid"],
-                    familise_trees=val_family_persons_tree)
-
-valloader = DataLoader(valset,
-                       shuffle=True,
-                       num_workers=NUM_WORKERS,
-                       batch_size=hyper_params["BATCH_SIZE"])
-
+trainloader, valloader = create_datasets(folder_dataset, train_pairs, val_pairs, image_transforms,
+                                         train_family_persons_tree, val_family_persons_tree,
+                                         hyper_params, NUM_WORKERS)
 
 # Visualize data in dataloader.
 # trainset.__getitem__(1)
@@ -105,18 +91,26 @@ valloader = DataLoader(valset,
 # imshow(torchvision.utils.make_grid(concatenated))
 # print(example_batch[2].numpy())
 
-net = SiameseNetwork(model_time).to(device)
+# net = SiameseNetwork(model_time).to(device)
+# net = VDCNN(model_time).to(device)
+net = ResNet(ResidualBlock, [4, 4, 4]).to(device)
 
 criterion = nn.CrossEntropyLoss(reduction='sum').to(device)    # use a Classification Cross-Entropy loss
 # criterion = nn.BCELoss(reduction='sum')
-# optimizer = optim.Adam(net.classifier.parameters(), lr=lr, weight_decay=1e-4)
-optimizer = optim.Adam(net.parameters(), lr=hyper_params["lr"], weight_decay=hyper_params["weight_decay"])
+optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
 
 train_history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
 best_val_acc = 0 ; IMPROVED = False     # save model only if it improves val acc.
-
-print("Start training model {}!".format(model_time))
+curr_lr = hyper_params['init_lr']
+print("Start training model {}! init lr: {}".format(model_time, curr_lr))
 for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
+    # Decay learning rate
+    if hyper_params['decay_lr'] and (epoch) % hyper_params['lr_decay_rate'] == 0 \
+            and epoch > 0 and curr_lr > hyper_params['min_lr']:
+        curr_lr *= hyper_params['lr_decay_factor']
+        update_lr(optimizer, curr_lr)
+        print('New lr: {}', curr_lr)
+
     # initialize epoch meters.
     epoch_start_time = time.time()
     train_loss = 0
@@ -138,16 +132,17 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
         train_loss += loss.item()
         # acc:
         # predicted = torch.round(outputs.data)
-        # sm = outputs.softmax(1)
-        _, predicted = torch.max(outputs.data, 1)
+        with torch.no_grad():
+            sm = outputs.softmax(dim=1)
+            _, predicted = torch.max(sm.data, 1)
         # correct_val += (predicted.long()[0, :] == labels).sum().item()
         train_acc += (predicted == labels).sum().item()
         loss.backward()
         optimizer.step()
 
     epoch_time = time.time() - epoch_start_time
-    train_acc /= (0.01*trainset.__len__())
-    train_loss /= trainset.__len__()
+    train_acc /= (0.01*trainloader.dataset.__len__())
+    train_loss /= trainloader.dataset.__len__()
 
     # test the network after finish each epoch, to have a brief training result.
     correct_val = 0
@@ -161,13 +156,14 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
             # predicted = torch.round(outputs.data)
             loss = criterion(outputs, labels)
             val_loss += loss.item()
-            # sm = outputs.softmax(1)
-            _, predicted = torch.max(outputs.data, 1)
+            with torch.no_grad():
+                sm = outputs.softmax(dim=1)
+                _, predicted = torch.max(sm.data, 1)
             # correct_val += (predicted.long()[0, :] == labels).sum().item()
             val_acc += (predicted == labels).sum().item()
 
-    val_acc /= (0.01*valset.__len__())
-    val_loss /= valset.__len__()
+    val_acc /= (0.01*valloader.dataset.__len__())
+    val_loss /= valloader.dataset.__len__()
 
     if val_acc > best_val_acc:
         best_val_acc = val_acc
@@ -188,7 +184,8 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
             torch.save(net.state_dict(), root_folder / 'models' / str(model_time) / '{}_e{}_vl{:.4f}_va{:.2f}.pt'.format(model_time, epoch, val_loss, val_acc))
     np.save(root_folder / 'curves' / str(model_time), train_history)
 
-    show_plot(train_history)
+    # show_plot(train_history)
+
 if CREATE_SUBMISSION:
     model_name = get_best_model(model_folder=root_folder / 'models' / str(model_time), measure='val_acc')
     create_submission(root_path=root_folder, model_name=model_name, transform=image_transforms['valid'], net=None)

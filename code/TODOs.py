@@ -6,9 +6,4 @@
 
 # TODO normalize data. notice that we have both black&white images and color ones! pre-process?
 
-# TODO add sigmoid to nn output
-
-# TODO change to ResNet arch?
-
-# TODO initialize NN properly
 
