@@ -5,21 +5,27 @@ import numpy as np
 # import torch.functional as F
 from torch.nn.init import kaiming_normal_
 
-class SiameseNetwork(nn.Module):  # A simple implementation of siamese network, ResNet50 is used, and then connected by three fc layer.
 
+class SiameseNetwork(nn.Module):
     def __init__(self, model_time):
         super(SiameseNetwork, self).__init__()
         self.name = str(model_time)
         self.feat_ext = models.vgg16_bn(pretrained=True)
         # self.feat_ext = models.squeezenet1_0(pretrained=True)
-        for param in self.feat_ext.parameters():
-            param.requires_grad = False
 
         num_features = self.feat_ext.classifier[-1].in_features # VGG
         print("features space size: {}".format(num_features)) # VGG
         features = list(self.feat_ext.classifier.children())[:-1]  # Remove last layer in VGG16_bn
         # features = list(self.feat_ext.classifier.children())[:-1]  # Remove last layer in SN
         self.feat_ext.classifier = nn.Sequential(*features)
+
+        freeze_first = 50
+        a = 0
+        for param in self.feat_ext.parameters():
+            param.requires_grad = False
+            a += 1
+            if a == freeze_first:
+                break
 
         # list(self.feat_ext.parameters())[-2].requires_grad = True
 
@@ -28,7 +34,8 @@ class SiameseNetwork(nn.Module):  # A simple implementation of siamese network, 
             nn.ReLU(),
             nn.Linear(256, 64),
             nn.ReLU(),
-            nn.Linear(64, 2),
+            nn.Linear(64, 1),
+            nn.Sigmoid()
         )
 
         self.initialize()
@@ -334,12 +341,16 @@ class ResNet(nn.Module):
         self.conv = conv3x3(3, 16)
         self.bn = nn.BatchNorm2d(16)
         self.relu = nn.ReLU(inplace=True)
+        self.sigmoid = nn.Sigmoid()
         self.layer1 = self.make_layer(block, 16, layers[0])
         self.layer2 = self.make_layer(block, 32, layers[1], 2)
         self.layer3 = self.make_layer(block, 64, layers[2], 2)
         self.avg_pool = nn.AvgPool2d(8)
         # self.fc = nn.Linear(1344, num_classes)
-        self.fc = nn.Linear(6272, num_classes)
+        self.fc1 = nn.Linear(3136, 256)
+        # self.fc1 = nn.Linear(6272, 256)
+        self.fc2 = nn.Linear(256, 32)
+        self.fc3 = nn.Linear(32, 1)
         # Print model parameters
         trainable_model_parameters = filter(lambda p: p.requires_grad, self.parameters())
         non_trainable_model_parameters = filter(lambda p: not (p.requires_grad), self.parameters())
@@ -361,9 +372,9 @@ class ResNet(nn.Module):
             layers.append(block(out_channels, out_channels))
         return nn.Sequential(*layers)
 
-    def forward(self, input1, input2):
-        x = torch.cat((input1, input2), dim=2)
-        out = self.conv(x)
+    def forward_common(self, input):  # siamese NN
+        # feed input1
+        out = self.conv(input)
         out = self.bn(out)
         out = self.relu(out)
         out = self.layer1(out)
@@ -371,7 +382,35 @@ class ResNet(nn.Module):
         out = self.layer3(out)
         out = self.avg_pool(out)
         out = out.view(out.size(0), -1)
-        out = self.fc(out)
         return out
 
+    def forward(self, input1, input2):  # siamese NN
+        # feed input1
+        out1 = self.forward_common(input1)
+        # feed input2
+        out2 = self.forward_common(input2)
 
+        # out = torch.cat((out1, out2), dim=1)
+        out = out1 + out2
+        out = self.fc1(out)
+        out = self.relu(out)
+        out = self.fc2(out)
+        out = self.relu(out)
+        out = self.fc3(out)
+        out = self.sigmoid(out)
+        return out
+
+    # def forward(self, input1, input2):  # 2 images concatenated, then, feed-forward into 1 model.
+    #     x = torch.cat((input1, input2), dim=2)
+    #     out = self.conv(x)
+    #     out = self.bn(out)
+    #     out = self.relu(out)
+    #     out = self.layer1(out)
+    #     out = self.layer2(out)
+    #     out = self.layer3(out)
+    #     out = self.avg_pool(out)
+    #     out = out.view(out.size(0), -1)
+    #     out = self.fc1(out)
+    #     out = self.fc2(out)
+    #     out = self.fc3(out)
+    #     return out
