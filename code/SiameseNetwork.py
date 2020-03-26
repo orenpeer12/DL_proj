@@ -10,33 +10,34 @@ class SiameseNetwork(nn.Module):
     def __init__(self, model_time):
         super(SiameseNetwork, self).__init__()
         self.name = str(model_time)
-
+        # Load trained model for transfer learning:
         self.model = models.vgg16_bn(pretrained=True)
-
-        # self.features = vggModel.features
-        # self.avgpool = vggModel.avgpool
-
         num_features = self.model.classifier[-1].in_features  # VGG
         print("features space size: {}".format(num_features))  # VGG
-
+        # common part ('siamese')
         self.model.classifier = self.model.classifier[:-1]
-
-        self.model.classifier.add_module('Our Classifier', nn.Linear(num_features, 1))
-        self.model.classifier.add_module('Our Sigmoid', nn.Sigmoid())
-
+        # Separate part - 2 featurs_vectors -> one long vector -> classify:
+        self.our_classifier = nn.Sequential(nn.Linear(2 * num_features, 1),
+                                            nn.Sigmoid())
         for param in self.model.features.parameters():
+            param.requires_grad = False
+
+        for i, param in enumerate(self.model.classifier[0].parameters()):
             param.requires_grad = False
 
         self.initialize()
 
+        # self.model.classifier.add_module('Our Classifier', nn.Linear(2 * num_features, 1))
+        # self.model.classifier.add_module('Our Sigmoid', nn.Sigmoid())
+
     def forward(self, input1, input2):
-        feat1 = self.model.features(input1)
+        feat1 = self.model(input1)
         feat1 = feat1.view(feat1.size()[0], -1)  # make it suitable for fc layer.
-        feat2 = self.model.features(input2)
+        feat2 = self.model(input2)
         feat2 = feat2.view(feat2.size()[0], -1)  # make it suitable for fc layer.
         # feat = feat1 + feat2
         feat = torch.cat((feat1, feat2), dim=1)
-        output = self.model.classifier(feat)
+        output = self.our_classifier(feat)
         return output
 
     # init weights of our classifier
