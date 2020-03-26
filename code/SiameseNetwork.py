@@ -15,7 +15,7 @@ class SiameseNetwork(nn.Module):  # A simple implementation of siamese network, 
         for param in self.feat_ext.parameters():
             param.requires_grad = False
 
-        num_features = self.feat_ext.classifier[6].in_features # VGG
+        num_features = self.feat_ext.classifier[-1].in_features # VGG
         print("features space size: {}".format(num_features)) # VGG
         features = list(self.feat_ext.classifier.children())[:-1]  # Remove last layer in VGG16_bn
         # features = list(self.feat_ext.classifier.children())[:-1]  # Remove last layer in SN

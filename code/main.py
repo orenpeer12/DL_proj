@@ -14,7 +14,7 @@ from utils import *
 import json
 # setting the seed
 # np.random.seed(43)
-NUM_WORKERS = 4
+NUM_WORKERS = 0
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 SAVE_MODELS = True
@@ -59,13 +59,8 @@ image_transforms = {
 # \\data\\faces
 
 val_families = "F09" # all families starts with this str will be sent to validation set.
-if getpass.getuser() == 'nirgreshler':
-    root_folder = Path('E:\\DL_Course\\FacesInTheWild') if sys.platform.startswith('win') \
-        else Path('/home/oren/nir/DL_proj')
-else:
-    root_folder = Path('C:\\Users\\Oren Peer\\Documents\\technion\\OneDrive - Technion\\Master\\DL_proj') if \
-        sys.platform.startswith('win') \
-        else Path('/home/oren/PycharmProjects/DL_proj')
+
+root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # path to the folder contains all data folders and csv files
 data_path = root_folder / 'data' / 'faces'
@@ -91,16 +86,17 @@ trainloader, valloader = create_datasets(folder_dataset, train_pairs, val_pairs,
 # imshow(torchvision.utils.make_grid(concatenated))
 # print(example_batch[2].numpy())
 
-# net = SiameseNetwork(model_time).to(device)
+net = SiameseNetwork(model_time).to(device)
 # net = VDCNN(model_time).to(device)
-net = ResNet(ResidualBlock, [4, 4, 4]).to(device)
+# net = ResNet(ResidualBlock, [4, 4, 4]).to(device)
 
 criterion = nn.CrossEntropyLoss(reduction='sum').to(device)    # use a Classification Cross-Entropy loss
 # criterion = nn.BCELoss(reduction='sum')
 optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
 
 train_history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
-best_val_acc = 0 ; IMPROVED = False     # save model only if it improves val acc.
+best_val_acc = 0
+IMPROVED = False     # save model only if it improves val acc.
 curr_lr = hyper_params['init_lr']
 print("Start training model {}! init lr: {}".format(model_time, curr_lr))
 for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
@@ -118,7 +114,7 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
     train_acc = 0
     val_acc = 0
 
-    net.train()
+    net.train()  # move the net to train mode
     for i, data in enumerate(trainloader, 0):
         IMPROVED = False
         img0, img1, labels = data  # img=tensor[batch_size,channels,width,length], label=tensor[batch_size,label]

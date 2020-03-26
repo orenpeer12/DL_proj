@@ -44,6 +44,7 @@ class OurDataset(Dataset):
             else:
                 img1_info = img1_info[1]
             family1, person1 = img1_info.split(self.delim)
+            assert family0 == family1
             img1_path = random.choice(self.familise_trees[family1][person1])
         else:  # 0 means non-related
             randChoose = True  # in case the chosen person is related to first person
