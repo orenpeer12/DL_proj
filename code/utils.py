@@ -12,7 +12,7 @@ import torch
 from torch.utils.data import DataLoader
 from OurDataset import *
 from SiameseNetwork import *
-
+import torchvision.transforms as transforms
 
 def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█', printEnd="\r"):
     """
@@ -162,25 +162,26 @@ def extract_diff_str(train_history):
     return train_loss_diff, val_loss_diff, train_acc_diff, val_acc_diff
 
 
-def create_submission(root_path, model_name, transform, net=None):
+def create_submission(root_folder, model_name, transform, net=None):
     # gpu or cpu:
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # get the sample submission file for loading pairs, and create the new submission file.
-    sampe_submission_path = root_path / 'data' / 'faces' / 'sample_submission.csv'
-    dst_submission_path = root_path / 'submissions_files' / model_name.replace('.pt', '.csv')
+    sampe_submission_path = root_folder / 'data' / 'faces' / 'sample_submission.csv'
+    dst_submission_path = root_folder / 'submissions_files' / model_name.replace('.pt', '.csv')
     copyfile(sampe_submission_path, dst_submission_path)
     df_submit = pd.read_csv(str(dst_submission_path))
 
     # create the testset and data loader:
-    testset = TestDataset(df=df_submit, root_dir=root_path / 'data' / 'faces' / 'test', transform=transform)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=32)
+    testset = TestDataset(df=df_submit, root_dir=root_folder / 'data' / 'faces' / 'test', transform=transform)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=8)
 
     # if needed, load model:
     if net is None:
         model_time = model_name.split('_')[0]
-        net = SiameseNetwork(model_time).to(device)
-        net.load_state_dict(torch.load(root_path / 'models' / model_time / model_name))
+        # net = ResNet(model_time).to(device)
+        # net = ResNet(ResidualBlock, [4,4,4]).to(device)
+        net.load_state_dict(torch.load(root_folder / 'models' / model_time / model_name))
 
     # pass testset through model:
     net.eval()
@@ -212,14 +213,14 @@ def get_best_model(model_folder, measure='val_acc'):
         measures.append(mod_measure)
     best_model_idx = np.argmax(measures)
     return all_models[best_model_idx]
-
+#
 # root_path = Path('/home/oren/PycharmProjects/DL_proj')
-# model_name = "1584439576_e0_vl0.6883_va53.04.pt"
+# model_name = "1585131238_e56_vl0.6654_va63.18.pt"
 # transform = transforms.Compose([
 #     transforms.ToTensor(),
 #     transforms.Normalize([0.485, 0.456, 0.406],
 #                          [0.229, 0.224, 0.225])])
-# create_submission(root_path=root_path, model_name=model_name, transform=transform)
+# create_submission(root_folder=root_path, model_name=model_name, transform=transform)
 
 def update_lr(optimizer, lr):
     for param_group in optimizer.param_groups:

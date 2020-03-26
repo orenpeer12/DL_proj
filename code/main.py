@@ -12,24 +12,25 @@ from OurDataset import *
 from SiameseNetwork import *
 from utils import *
 import json
+
 # setting the seed
 # np.random.seed(43)
-NUM_WORKERS = 4
+NUM_WORKERS = 0
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
-SAVE_MODELS = True
-CREATE_SUBMISSION = True
+SAVE_MODELS = False
+CREATE_SUBMISSION = False
 
 # Hyper params
 hyper_params = {
-    "init_lr": 1e-3,
-    "BATCH_SIZE": 32,
-    "NUMBER_EPOCHS": 100,
+    "init_lr": 1e-3 ,
+    "BATCH_SIZE": 64,
+    "NUMBER_EPOCHS": 200,
     "weight_decay": 0,
     "decay_lr": True,
     "lr_decay_factor": 0.5,
-    "lr_decay_rate": 10,  # decay every X epochs
-    "min_lr": 1e-6  #
+    "lr_decay_rate": 20,  # decay every X epochs
+    "min_lr": 1e-6
 }
 print("Hyper parameters:", hyper_params)
 
@@ -91,12 +92,15 @@ trainloader, valloader = create_datasets(folder_dataset, train_pairs, val_pairs,
 # imshow(torchvision.utils.make_grid(concatenated))
 # print(example_batch[2].numpy())
 
-# net = SiameseNetwork(model_time).to(device)
-# net = VDCNN(model_time).to(device)
-net = ResNet(ResidualBlock, [4, 4, 4]).to(device)
+net = SiameseNetwork(model_time)
+# net = VDCNN(model_time)
+# net = ResNet(ResidualBlock, [2, 2, 2])
 
-criterion = nn.CrossEntropyLoss(reduction='sum').to(device)    # use a Classification Cross-Entropy loss
-# criterion = nn.BCELoss(reduction='sum')
+# net = nn.DataParallel(net)
+net.to(device)
+
+# criterion = nn.CrossEntropyLoss(reduction='sum').to(device)    # use a Classification Cross-Entropy loss
+criterion = nn.BCELoss().to(device)     # try F.BCE...
 optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
 
 train_history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
@@ -112,41 +116,40 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
         print('New lr: {}', curr_lr)
 
     # initialize epoch meters.
+    batch_counter = 0
     epoch_start_time = time.time()
     train_loss = 0
     val_loss = 0
     train_acc = 0
     val_acc = 0
-
     net.train()
-    for i, data in enumerate(trainloader, 0):
+    for i, data in enumerate(trainloader):
         IMPROVED = False
         img0, img1, labels = data  # img=tensor[batch_size,channels,width,length], label=tensor[batch_size,label]
         img0, img1, labels = img0.to(device), img1.to(device), labels.to(device)  # move to GPU
         optimizer.zero_grad()  # clear the calculated grad in previous batch
         outputs = net(img0, img1)
         # loss = criterion(outputs.view(-1), labels.float())
-        loss = criterion(outputs, labels)
+        loss = criterion(outputs, labels.float().view(outputs.shape))
         # add bach loss and acc to epoch-loss\acc
         # loss:
         train_loss += loss.item()
         # acc:
-        # predicted = torch.round(outputs.data)
-        with torch.no_grad():
-            sm = outputs.softmax(dim=1)
-            _, predicted = torch.max(sm.data, 1)
-        # correct_val += (predicted.long()[0, :] == labels).sum().item()
+        predicted = torch.round(outputs.data).long().view(-1)   # FOR BCE
+        # _, predicted = torch.max(outputs.data, 1) # FOR CR
         train_acc += (predicted == labels).sum().item()
         loss.backward()
         optimizer.step()
+        batch_counter += 1
 
     epoch_time = time.time() - epoch_start_time
     train_acc /= (0.01*trainloader.dataset.__len__())
-    train_loss /= trainloader.dataset.__len__()
+    train_loss /= batch_counter
 
     # test the network after finish each epoch, to have a brief training result.
     correct_val = 0
     total_val = 0
+    batch_counter = 0
     with torch.no_grad():
         net.eval()
         for data in valloader:
@@ -154,16 +157,15 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
             img0, img1, labels = img0.cuda(), img1.cuda(), labels.cuda()
             outputs = net(img0, img1)
             # predicted = torch.round(outputs.data)
-            loss = criterion(outputs, labels)
-            val_loss += loss.item()
-            with torch.no_grad():
-                sm = outputs.softmax(dim=1)
-                _, predicted = torch.max(sm.data, 1)
+            v_loss = criterion(outputs, labels.float().view(outputs.shape))
+            val_loss += v_loss.item()
+            # _, predicted = torch.max(outputs.data, 1)
+            predicted = torch.round(outputs.data).long().view(-1)
             # correct_val += (predicted.long()[0, :] == labels).sum().item()
             val_acc += (predicted == labels).sum().item()
-
+            batch_counter += 1
     val_acc /= (0.01*valloader.dataset.__len__())
-    val_loss /= valloader.dataset.__len__()
+    val_loss /= batch_counter
 
     if val_acc > best_val_acc:
         best_val_acc = val_acc
@@ -188,4 +190,4 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
 
 if CREATE_SUBMISSION:
     model_name = get_best_model(model_folder=root_folder / 'models' / str(model_time), measure='val_acc')
-    create_submission(root_path=root_folder, model_name=model_name, transform=image_transforms['valid'], net=None)
+    create_submission(root_folder=root_folder, model_name=model_name, transform=image_transforms['valid'], net=net)
