@@ -10,44 +10,33 @@ class SiameseNetwork(nn.Module):
     def __init__(self, model_time):
         super(SiameseNetwork, self).__init__()
         self.name = str(model_time)
-        self.feat_ext = models.vgg16_bn(pretrained=True)
-        # self.feat_ext = models.squeezenet1_0(pretrained=True)
 
-        num_features = self.feat_ext.classifier[-1].in_features # VGG
-        print("features space size: {}".format(num_features)) # VGG
-        features = list(self.feat_ext.classifier.children())[:-1]  # Remove last layer in VGG16_bn
-        # features = list(self.feat_ext.classifier.children())[:-1]  # Remove last layer in SN
-        self.feat_ext.classifier = nn.Sequential(*features)
+        self.model = models.vgg16_bn(pretrained=True)
 
-        freeze_first = 50
-        a = 0
-        for param in self.feat_ext.parameters():
+        # self.features = vggModel.features
+        # self.avgpool = vggModel.avgpool
+
+        num_features = self.model.classifier[-1].in_features  # VGG
+        print("features space size: {}".format(num_features))  # VGG
+
+        self.model.classifier = self.model.classifier[:-1]
+
+        self.model.classifier.add_module('Our Classifier', nn.Linear(num_features, 1))
+        self.model.classifier.add_module('Our Sigmoid', nn.Sigmoid())
+
+        for param in self.model.features.parameters():
             param.requires_grad = False
-            a += 1
-            if a == freeze_first:
-                break
-
-        # list(self.feat_ext.parameters())[-2].requires_grad = True
-
-        self.classifier = nn.Sequential(
-            nn.Linear(2 * num_features, 256),
-            nn.ReLU(),
-            nn.Linear(256, 64),
-            nn.ReLU(),
-            nn.Linear(64, 1),
-            nn.Sigmoid()
-        )
 
         self.initialize()
 
     def forward(self, input1, input2):
-        feat1 = self.feat_ext(input1)
+        feat1 = self.model.features(input1)
         feat1 = feat1.view(feat1.size()[0], -1)  # make it suitable for fc layer.
-        feat2 = self.feat_ext(input2)
+        feat2 = self.model.features(input2)
         feat2 = feat2.view(feat2.size()[0], -1)  # make it suitable for fc layer.
         # feat = feat1 + feat2
         feat = torch.cat((feat1, feat2), dim=1)
-        output = self.classifier(feat)
+        output = self.model.classifier(feat)
         return output
 
     # init weights of our classifier
@@ -56,7 +45,7 @@ class SiameseNetwork(nn.Module):
             if type(m) == nn.Linear:
                 nn.init.xavier_uniform_(m.weight.data)
                 m.bias.data.zero_()
-        self.classifier.apply(init_weights)
+        # self.model.classifier[-2].apply(init_weights)
         trainable_model_parameters = filter(lambda p: p.requires_grad, self.parameters())
         non_trainable_model_parameters = filter(lambda p: not(p.requires_grad), self.parameters())
         trainable_params = sum([np.prod(p.size()) for p in trainable_model_parameters])
@@ -65,12 +54,12 @@ class SiameseNetwork(nn.Module):
             trainable_params, non_trainable_params, trainable_params + non_trainable_params))
 
     def train(self):
-        self.feat_ext.eval()
-        self.classifier.train()
+        self.model.features.eval()
+        self.model.classifier.train()
 
     def eval(self):
-        self.feat_ext.eval()
-        self.classifier.eval()
+        self.model.features.eval()
+        self.model.classifier.eval()
 
 
 class ConvBlock(nn.Module):
