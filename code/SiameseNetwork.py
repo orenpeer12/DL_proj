@@ -17,12 +17,19 @@ class SiameseNetwork(nn.Module):
         # common part ('siamese')
         self.model.classifier = self.model.classifier[:-1]
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
-        self.our_classifier = nn.Sequential(nn.Linear(2 * num_features, 1),
-                                            nn.Sigmoid())
+        self.our_classifier = nn.Sequential(nn.Linear(2 * num_features, 256),
+                                            nn.ReLU(),
+                                            nn.Linear(256, 64),
+                                            nn.ReLU(),
+                                            nn.Linear(64, 32),
+                                            nn.ReLU(),
+                                            nn.Linear(32, 1),
+                                            nn.Sigmoid()
+                                            )
         for param in self.model.features.parameters():
             param.requires_grad = False
 
-        for i, param in enumerate(self.model.classifier[0].parameters()):
+        for i, param in enumerate(self.model.classifier.parameters()):
             param.requires_grad = False
 
         self.initialize()
