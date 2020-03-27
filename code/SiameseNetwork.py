@@ -1,23 +1,40 @@
+import os
+
 import torch
 from torch import nn
 from torchvision import models
 import numpy as np
+from pathlib import Path
 # import torch.functional as F
 from torch.nn.init import kaiming_normal_
-
+from pre_trained_models.resnet50_ft_pytorch.resnet50_ft_dims_2048 import resnet50_ft
+from pre_trained_models.senet50_256_pytorch.senet50_256 import senet50_256
 
 class SiameseNetwork(nn.Module):
     def __init__(self, model_time):
         super(SiameseNetwork, self).__init__()
+
         self.name = str(model_time)
+
+        # load pre-trained resnet model
+        root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        resnet50_model = resnet50_ft(
+            root_folder / 'pre_trained_models' / 'resnet50_ft_pytorch' / 'resnet50_ft_dims_2048.pth')
+        senet50_256_model = senet50_256(
+            root_folder / 'pre_trained_models' / 'senet50_256_pytorch' / 'senet50_256.pth')
+
+        pretrained_model = senet50_256_model
+
+        self.features = pretrained_model
+
         # Load trained model for transfer learning:
-        self.model = models.vgg16_bn(pretrained=True)
-        num_features = self.model.classifier[-1].in_features  # VGG
+        # self.model = models.vgg16_bn(pretrained=True)
+        num_features = self.features.feat_extract.out_channels     # VGG
         print("features space size: {}".format(num_features))  # VGG
         # common part ('siamese')
-        self.model.classifier = self.model.classifier[:-1]
+        # self.model.classifier = self.model.classifier[:-1]
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
-        self.our_classifier = nn.Sequential(nn.Linear(2 * num_features, 256),
+        self.classifier = nn.Sequential(nn.Linear(2 * num_features, 256),
                                             nn.ReLU(),
                                             nn.Linear(256, 64),
                                             nn.ReLU(),
@@ -26,11 +43,11 @@ class SiameseNetwork(nn.Module):
                                             nn.Linear(32, 1),
                                             nn.Sigmoid()
                                             )
-        for param in self.model.features.parameters():
+        for param in self.features.parameters():
             param.requires_grad = False
 
-        for i, param in enumerate(self.model.classifier.parameters()):
-            param.requires_grad = False
+        # for i, param in enumerate(self.model.classifier.parameters()):
+        #     param.requires_grad = False
 
         self.initialize()
 
@@ -38,13 +55,13 @@ class SiameseNetwork(nn.Module):
         # self.model.classifier.add_module('Our Sigmoid', nn.Sigmoid())
 
     def forward(self, input1, input2):
-        feat1 = self.model(input1)
+        feat1 = self.features(input1)[0]
         feat1 = feat1.view(feat1.size()[0], -1)  # make it suitable for fc layer.
-        feat2 = self.model(input2)
+        feat2 = self.features(input2)[0]
         feat2 = feat2.view(feat2.size()[0], -1)  # make it suitable for fc layer.
         # feat = feat1 + feat2
         feat = torch.cat((feat1, feat2), dim=1)
-        output = self.our_classifier(feat)
+        output = self.classifier(feat)
         return output
 
     # init weights of our classifier
@@ -54,6 +71,7 @@ class SiameseNetwork(nn.Module):
                 nn.init.xavier_uniform_(m.weight.data)
                 m.bias.data.zero_()
         # self.model.classifier[-2].apply(init_weights)
+        self.classifier.apply(init_weights)
         trainable_model_parameters = filter(lambda p: p.requires_grad, self.parameters())
         non_trainable_model_parameters = filter(lambda p: not(p.requires_grad), self.parameters())
         trainable_params = sum([np.prod(p.size()) for p in trainable_model_parameters])
@@ -62,12 +80,12 @@ class SiameseNetwork(nn.Module):
             trainable_params, non_trainable_params, trainable_params + non_trainable_params))
 
     def train(self):
-        self.model.features.eval()
-        self.model.classifier.train()
+        self.features.eval()
+        self.classifier.train()
 
     def eval(self):
-        self.model.features.eval()
-        self.model.classifier.eval()
+        self.features.eval()
+        self.classifier.eval()
 
 
 class ConvBlock(nn.Module):

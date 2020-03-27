@@ -44,15 +44,19 @@ image_transforms = {
         transforms.RandomRotation(degrees=3),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406],
-                             [0.229, 0.224, 0.225])
+        transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
+                             std=[1, 1, 1])
+        # transforms.Normalize([0.485, 0.456, 0.406],
+        #                      [0.229, 0.224, 0.225])
     ]),
     # Validation does not use augmentation
     'valid':
     transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406],
-                             [0.229, 0.224, 0.225])
+        transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
+                             std=[1, 1, 1])
+        # transforms.Normalize([0.485, 0.456, 0.406],
+        #                      [0.229, 0.224, 0.225])
     ]),
 }
 # image_transforms = {"train": None, "valid": None}

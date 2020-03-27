@@ -63,6 +63,9 @@ class OurDataset(Dataset):
         # img0 = np.array(img0, dtype=np.int64)  # TODO
         # img1 = np.array(img1, dtype=np.int64)  # TODO
 
+        img0 = img0.convert('RGB')
+        img1 = img1.convert('RGB')
+
         if self.transform is not None:
             img0 = self.transform(img0)
             img1 = self.transform(img1)
