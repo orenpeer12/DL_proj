@@ -23,8 +23,8 @@ CREATE_SUBMISSION = False
 
 # Hyper params
 hyper_params = {
-    "init_lr": 1e-5,
-    "BATCH_SIZE": 32,
+    "init_lr": 1e-3,
+    "BATCH_SIZE": 16,
     "NUMBER_EPOCHS": 200,
     "weight_decay": 0,
     "decay_lr": True,
