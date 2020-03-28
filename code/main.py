@@ -23,8 +23,8 @@ CREATE_SUBMISSION = False
 
 # Hyper params
 hyper_params = {
-    "init_lr": 1e-3 ,
-    "BATCH_SIZE": 64,
+    "init_lr": 1e-5,
+    "BATCH_SIZE": 16,
     "NUMBER_EPOCHS": 200,
     "weight_decay": 0,
     "decay_lr": True,
@@ -41,18 +41,22 @@ image_transforms = {
     # Train uses data augmentation
     'train':
     transforms.Compose([
-        transforms.RandomRotation(degrees=3),
-        transforms.RandomHorizontalFlip(),
+        # transforms.RandomRotation(degrees=3),
+        # transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406],
-                             [0.229, 0.224, 0.225])
+        # transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
+        #                      std=[1, 1, 1])
+        # transforms.Normalize([0.485, 0.456, 0.406],
+        #                      [0.229, 0.224, 0.225])
     ]),
     # Validation does not use augmentation
     'valid':
     transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406],
-                             [0.229, 0.224, 0.225])
+        # transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
+        #                      std=[1, 1, 1])
+        # transforms.Normalize([0.485, 0.456, 0.406],
+        #                      [0.229, 0.224, 0.225])
     ]),
 }
 # image_transforms = {"train": None, "valid": None}
@@ -97,6 +101,7 @@ net.to(device)
 # criterion = nn.CrossEntropyLoss(reduction='sum').to(device)    # use a Classification Cross-Entropy loss
 criterion = nn.BCELoss().to(device)     # try F.BCE...
 optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
+lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=10, verbose=1)
 
 train_history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
 best_val_acc = 0
@@ -105,11 +110,11 @@ curr_lr = hyper_params['init_lr']
 print("Start training model {}! init lr: {}".format(model_time, curr_lr))
 for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
     # Decay learning rate
-    if hyper_params['decay_lr'] and (epoch) % hyper_params['lr_decay_rate'] == 0 \
-            and epoch > 0 and curr_lr > hyper_params['min_lr']:
-        curr_lr *= hyper_params['lr_decay_factor']
-        update_lr(optimizer, curr_lr)
-        print('New lr: {}', curr_lr)
+    # if hyper_params['decay_lr'] and (epoch) % hyper_params['lr_decay_rate'] == 0 \
+    #         and epoch > 0 and curr_lr > hyper_params['min_lr']:
+    #     curr_lr *= hyper_params['lr_decay_factor']
+    #     update_lr(optimizer, curr_lr)
+    #     print('New lr: {}', curr_lr)
 
     # initialize epoch meters.
     batch_counter = 0
@@ -163,6 +168,9 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
             batch_counter += 1
     val_acc /= (0.01*valloader.dataset.__len__())
     val_loss /= batch_counter
+
+    # LR Scheduler
+    lr_scheduler.step(val_acc)
 
     if val_acc > best_val_acc:
         best_val_acc = val_acc

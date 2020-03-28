@@ -1,29 +1,62 @@
+import os
+
 import torch
 from torch import nn
 from torchvision import models
 import numpy as np
+from pathlib import Path
 # import torch.functional as F
 from torch.nn.init import kaiming_normal_
+from pre_trained_models.resnet50_ft_pytorch.resnet50_ft_dims_2048 import resnet50_ft
+from pre_trained_models.resnet50_128_pytorch.resnet50_128 import resnet50_128
+from pre_trained_models.senet50_256_pytorch.senet50_256 import senet50_256
 
 
 class SiameseNetwork(nn.Module):
     def __init__(self, model_time):
         super(SiameseNetwork, self).__init__()
-        self.name = str(model_time)
-        # Load trained model for transfer learning:
-        self.model = models.vgg16_bn(pretrained=True)
-        num_features = self.model.classifier[-1].in_features  # VGG
-        print("features space size: {}".format(num_features))  # VGG
-        # common part ('siamese')
-        self.model.classifier = self.model.classifier[:-1]
-        # Separate part - 2 featurs_vectors -> one long vector -> classify:
-        self.our_classifier = nn.Sequential(nn.Linear(2 * num_features, 1),
-                                            nn.Sigmoid())
-        for param in self.model.features.parameters():
-            param.requires_grad = False
 
-        for i, param in enumerate(self.model.classifier[0].parameters()):
-            param.requires_grad = False
+        self.name = str(model_time)
+
+        # load pre-trained resnet model
+        root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        resnet50_model = resnet50_ft(
+            root_folder / 'pre_trained_models' / 'resnet50_ft_pytorch' / 'resnet50_ft_dims_2048.pth')
+        # resnet50_128_model = resnet50_128(
+        #     root_folder / 'pre_trained_models' / 'resnet50_128_pytorch' / 'resnet50_128.pth')
+        # senet50_256_model = senet50_256(
+        #     root_folder / 'pre_trained_models' / 'senet50_256_pytorch' / 'senet50_256.pth')
+
+        pretrained_model = resnet50_model
+
+        self.features = pretrained_model
+
+        # Load trained model for transfer learning:
+        # self.model = models.vgg16_bn(pretrained=True)
+        # num_features = self.features.feat_extract.out_channels     # VGG
+        num_features = self.features.classifier.in_channels
+        print("features space size: {}".format(num_features))
+        # common part ('siamese')
+        # self.model.classifier = self.model.classifier[:-1]
+        # Separate part - 2 featurs_vectors -> one long vector -> classify:
+        self.classifier = nn.Sequential(nn.Linear(4 * num_features, 100),
+                                        nn.ReLU(),
+                                        nn.Dropout(0.3),
+                                        nn.Linear(100, 25),
+                                        nn.ReLU(),
+                                        nn.Dropout(0.3),
+                                        nn.Linear(25, 1),
+                                        nn.Sigmoid()
+                                        )
+        # for param in self.features.parameters():
+        #     param.requires_grad = False
+
+        for i, (name, param) in enumerate(self.features.named_parameters()):
+            if i < 158:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
+                print(i, name, ": Not frozen!")
 
         self.initialize()
 
@@ -31,13 +64,32 @@ class SiameseNetwork(nn.Module):
         # self.model.classifier.add_module('Our Sigmoid', nn.Sigmoid())
 
     def forward(self, input1, input2):
-        feat1 = self.model(input1)
-        feat1 = feat1.view(feat1.size()[0], -1)  # make it suitable for fc layer.
-        feat2 = self.model(input2)
-        feat2 = feat2.view(feat2.size()[0], -1)  # make it suitable for fc layer.
+        feat1 = self.features(input1)[1]
+        # feat1 = feat1.view(feat1.size()[0], -1)  # make it suitable for fc layer.
+        # feat1 /= torch.sqrt(torch.sum(feat1**2, dim=1, keepdim=True))
+        feat2 = self.features(input2)[1]
+        # feat2 = feat2.view(feat2.size()[0], -1)  # make it suitable for fc layer.
+        # feat2 /= torch.sqrt(torch.sum(feat2 ** 2, dim=1, keepdim=True))
         # feat = feat1 + feat2
-        feat = torch.cat((feat1, feat2), dim=1)
-        output = self.our_classifier(feat)
+
+        f1_max = torch.nn.functional.max_pool2d(feat1, kernel_size=feat1.size()[2:])
+        f1_avg = nn.functional.avg_pool2d(feat1, kernel_size=feat1.size()[2:])
+        f1 = torch.cat((f1_max, f1_avg), dim=1)
+
+        f2_max = torch.nn.functional.max_pool2d(feat2, kernel_size=feat2.size()[2:])
+        f2_avg = nn.functional.avg_pool2d(feat2, kernel_size=feat2.size()[2:])
+        f2 = torch.cat((f2_max, f2_avg), dim=1)
+
+        f3 = torch.sub(f1, f2)
+        f3 = torch.mul(f3, f3)
+
+        f1_ = torch.mul(f1, f1)
+        f2_ = torch.mul(f2, f2)
+        f4 = torch.sub(f1_, f2_)
+        feat = torch.cat((f4, f3), dim=1)
+        feat = feat.view(feat.size()[0], -1)
+
+        output = self.classifier(feat)
         return output
 
     # init weights of our classifier
@@ -46,21 +98,23 @@ class SiameseNetwork(nn.Module):
             if type(m) == nn.Linear:
                 nn.init.xavier_uniform_(m.weight.data)
                 m.bias.data.zero_()
+
         # self.model.classifier[-2].apply(init_weights)
+        self.classifier.apply(init_weights)
         trainable_model_parameters = filter(lambda p: p.requires_grad, self.parameters())
-        non_trainable_model_parameters = filter(lambda p: not(p.requires_grad), self.parameters())
+        non_trainable_model_parameters = filter(lambda p: not (p.requires_grad), self.parameters())
         trainable_params = sum([np.prod(p.size()) for p in trainable_model_parameters])
         non_trainable_params = sum([np.prod(p.size()) for p in non_trainable_model_parameters])
         print("Num. of trainable parameters: {:,}, num. of frozen parameters: {:,}, total: {:,}".format(
             trainable_params, non_trainable_params, trainable_params + non_trainable_params))
 
     def train(self):
-        self.model.features.eval()
-        self.model.classifier.train()
+        self.features.eval()
+        self.classifier.train()
 
     def eval(self):
-        self.model.features.eval()
-        self.model.classifier.eval()
+        self.features.eval()
+        self.classifier.eval()
 
 
 class ConvBlock(nn.Module):
@@ -99,7 +153,8 @@ class ConvBlock(nn.Module):
 
 class VDCNN(nn.Module):
 
-    def __init__(self, model_time, n_classes=2, num_embedding=69, embedding_dim=16, depth=9, n_fc_neurons=2048, shortcut=False):
+    def __init__(self, model_time, n_classes=2, num_embedding=69, embedding_dim=16, depth=9, n_fc_neurons=2048,
+                 shortcut=False):
         super(VDCNN, self).__init__()
         self.name = str(model_time)
         layers = []
@@ -285,7 +340,6 @@ class SiameseNetwork2(nn.Module):
         x38 = self.fc8(x37)
         return x38
 
-
     def forward(self, input1, input2):
         output1 = self.forward_once(input1)
         output2 = self.forward_once(input2)
@@ -320,9 +374,12 @@ class ResidualBlock(nn.Module):
         out = self.relu(out)
         return out
 
+
 def conv3x3(in_channels, out_channels, stride=1):
     return nn.Conv2d(in_channels, out_channels, kernel_size=3,
                      stride=stride, padding=1, bias=False)
+
+
 # ResNet
 class ResNet(nn.Module):
     def __init__(self, block, layers, num_classes=2):

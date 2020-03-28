@@ -64,7 +64,11 @@ class OurDataset(Dataset):
         # img1 = np.array(img1, dtype=np.int64)  # TODO
 
         if self.transform is not None:
+            # r0, g0, b0 = img0.split()
+            # img0 = Image.merge("RGB", (b0, g0, r0))
             img0 = self.transform(img0)
+            # r1, g1, b1 = img1.split()
+            # img1 = Image.merge("RGB", (b1, g1, r1))
             img1 = self.transform(img1)
 
         return img0, img1, relative_label  # the returned data from dataloader is img=[batch_size,channels,width,length], relative_label=[batch_size,label]
