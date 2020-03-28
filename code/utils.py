@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import pandas as pd
 import numpy as np
 import os
@@ -225,3 +227,36 @@ def get_best_model(model_folder, measure='val_acc'):
 def update_lr(optimizer, lr):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
+
+def get_train_val(family_name, data_path):
+
+    all_images = glob(str(data_path / 'train/*/*/*.jpg'))
+    relationships = pd.read_csv(str(data_path / "train_relationships.csv"))
+
+    # Get val_person_image_map
+    val_famillies = family_name
+    train_images = [x for x in all_images if val_famillies not in x]
+    val_images = [x for x in all_images if val_famillies in x]
+
+    train_person_to_images_map = defaultdict(list)
+
+    ppl = [x.split("/")[-3] + "/" + x.split("/")[-2] for x in all_images]
+
+    for x in train_images:
+        train_person_to_images_map[x.split("/")[-3] + "/" + x.split("/")[-2]].append(x)
+
+    val_person_to_images_map = defaultdict(list)
+
+    for x in val_images:
+        val_person_to_images_map[x.split("/")[-3] + "/" + x.split("/")[-2]].append(x)
+
+    # Get the train and val dataset
+    #     relationships = pd.read_csv(train_file_path)
+    relationships = list(zip(relationships.p1.values, relationships.p2.values))
+    relationships = [x for x in relationships if x[0] in ppl and x[1] in ppl]
+
+    train = [x for x in relationships if val_famillies not in x[0]]
+    val = [x for x in relationships if val_famillies in x[0]]
+
+    return train, val, train_person_to_images_map, val_person_to_images_map

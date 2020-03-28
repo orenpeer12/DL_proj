@@ -3,6 +3,7 @@ import sys
 from glob import glob
 import cv2
 from PIL import Image
+import PIL
 from torch.utils.data import Dataset
 import numpy as np
 from torch.utils.data import DataLoader
@@ -24,7 +25,7 @@ class OurDataset(Dataset):
         # Returns two images and whether they are related.
         # for each relationship in train_relationships.csv,
         # the first img comes from first row, and the second is either specially chosen related person or randomly chosen non-related person
-        img0_info = self.relationships[index][0]
+        img0_info = random.choice(self.relationships[index])
         family0, person0 = img0_info.split(self.delim)
         # img0_path = glob(str(self.imageFolderDataset.root / img0_info) + self.delim + "*.jpg")
         img0_path = random.choice(self.familise_trees[family0][person0])
@@ -60,17 +61,27 @@ class OurDataset(Dataset):
         img0 = Image.open(img0_path)
         img1 = Image.open(img1_path)
 
+        img0 = img0.resize(size=(197, 197), resample=PIL.Image.BILINEAR)
+        img1 = img1.resize(size=(197, 197), resample=PIL.Image.BILINEAR)
+
         # img0 = np.array(img0, dtype=np.int64)  # TODO
         # img1 = np.array(img1, dtype=np.int64)  # TODO
 
         img0 = img0.convert('RGB')
         img1 = img1.convert('RGB')
 
+        mean = (131.0912, 103.8827, 91.4953)
+        # mean = (91.4953, 103.8827, 131.0912)
+        # img0 = Image.fromarray(np.uint8(np.array(img0) - mean))
+        # img1 = Image.fromarray(np.uint8(np.array(img1) - mean))
+        img0 = np.array(img0) - mean
+        img1 = np.array(img1) - mean
+
         if self.transform is not None:
             img0 = self.transform(img0)
             img1 = self.transform(img1)
 
-        return img0, img1, relative_label  # the returned data from dataloader is img=[batch_size,channels,width,length], relative_label=[batch_size,label]
+        return img0.float(), img1.float(), relative_label  # the returned data from dataloader is img=[batch_size,channels,width,length], relative_label=[batch_size,label]
 
     def __len__(self):
         return len(self.relationships)  # essential for choose the num of data in one epoch
