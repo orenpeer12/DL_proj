@@ -1,3 +1,4 @@
+# region Imports
 import numpy as np
 import time
 from pathlib import Path
@@ -12,39 +13,40 @@ from OurDataset import *
 from SiameseNetwork import *
 from utils import *
 import json
-# setting the seed
+# endregion
+
+# region Run Settings and Definitions
 # np.random.seed(43)
 NUM_WORKERS = 4
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-# device = torch.device('cpu')
-SAVE_MODELS = False
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+SAVE_MODELS = True
 CREATE_SUBMISSION = True
+# root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+root_folder = Path(os.path.dirname(os.getcwd()))
+# endregion
 
-# Hyper params
+# region Hyper Parameters
 hyper_params = {
-    "init_lr": 1e-4,
-    "BATCH_SIZE": 32,
-    "NUMBER_EPOCHS": 300,
+    "init_lr": 1e-5,
+    "BATCH_SIZE": 16,
+    "NUMBER_EPOCHS": 10,
     "weight_decay": 0,
     "decay_lr": True,
     "lr_decay_factor": 0.5,
     "lr_patience": 15,  # decay every X epochs without improve
     "min_lr": 1e-6,
-    "Comments": "Resnet 50, classifier 64->32->1"
 }
 print("Hyper parameters:", hyper_params)
+# endregion
 
-model_time = round(time.time())
-model_name = time.strftime('%d.%m.%H.%M.%S')
-
-# Image transformations
+# region Image transformations
 image_transforms = {
     # Train uses data augmentation
     'train':
     transforms.Compose([
         transforms.RandomRotation(degrees=3),
         transforms.RandomHorizontalFlip(),
-        # transforms.RandomGrayscale(),
+        transforms.RandomGrayscale(),
         transforms.Resize(256),
         transforms.CenterCrop(197),
         transforms.ToTensor(),
@@ -63,30 +65,18 @@ image_transforms = {
                              std=[1, 1, 1])
     ]),
 }
-# image_transforms = {"train": None, "valid": None}
-# Load data:
-# \\data\\faces
+# endregion
 
-val_families = "F09" # all families starts with this str will be sent to validation set.
-# root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-root_folder = Path(os.path.dirname(os.getcwd()))
+# region Load Data
+val_families = "F09"  # all families starts with this str will be sent to validation set.
 
 # path to the folder contains all data folders and csv files
 data_path = root_folder / 'data' / 'faces'
-if SAVE_MODELS:
-    os.mkdir(root_folder / 'models' / model_name)
-    # save hyper parameters to json:
-    with open(str(root_folder / 'models' / model_name / "Hyper_Params.json"), 'w') as fp:
-        json.dump(hyper_params, fp)
-
 train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs = load_data(data_path)
-
 folder_dataset = dset.ImageFolder(root=data_path / 'train')
-
 trainloader, valloader = create_datasets(folder_dataset, train_pairs, val_pairs, image_transforms,
                                          train_family_persons_tree, val_family_persons_tree,
                                          hyper_params, NUM_WORKERS)
-
 # Visualize data in dataloader.
 # trainset.__getitem__(1)
 # dataiter = iter(trainloader)
@@ -94,32 +84,43 @@ trainloader, valloader = create_datasets(folder_dataset, train_pairs, val_pairs,
 # concatenated = torch.cat((example_batch[0],example_batch[1]),0)
 # imshow(torchvision.utils.make_grid(concatenated))
 # print(example_batch[2].numpy())
+# endregion
 
+# region Define Model
+model_name = time.strftime('%d.%m.%H.%M.%S')
 net = SiameseNetwork(model_name)
-# net = nn.DataParallel(net)
 net.to(device)
+# endregion
 
-# criterion = nn.CrossEntropyLoss(reduction='sum').to(device)    # use a Classification Cross-Entropy loss
-criterion = nn.BCELoss().to(device)     # try F.BCE...
+# region Define Loss and Optimizer
+criterion = nn.BCELoss().to(device)
 optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
-
 lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
     optimizer, mode='max', factor=hyper_params['lr_decay_factor'],
     patience=hyper_params['lr_patience'], verbose=1)
+# endregion
 
+# region Save Run Definitions (Model and Hyper Parameters)
+if SAVE_MODELS:
+    # save pre-trained model and our classifier arch.
+    hyper_params["feature_extractor"] = net.features._get_name()
+    hyper_params["classifier"] = net.classifier.__str__()
+    hyper_params["criterion"] = criterion.__str__()
+    hyper_params["optimizer"] = optimizer.__str__()
+
+    os.mkdir(root_folder / 'models' / model_name)
+    # save hyper parameters to json:
+    with open(str(root_folder / 'models' / model_name / "Hyper_Params.json"), 'w') as fp:
+        json.dump(hyper_params, fp)
+# endregion
+
+# region Training
 train_history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
 best_val_acc = 0
 IMPROVED = False     # save model only if it improves val acc.
 curr_lr = hyper_params['init_lr']
 print("Start training model {}! init lr: {}".format(model_name, curr_lr))
 for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
-    # Decay learning rate
-    # if hyper_params['decay_lr'] and (epoch) % hyper_params['lr_decay_rate'] == 0 \
-    #         and epoch > 0 and curr_lr > hyper_params['min_lr']:
-    #     curr_lr *= hyper_params['lr_decay_factor']
-    #     update_lr(optimizer, curr_lr)
-    #     print('New lr: {}', curr_lr)
-
     # initialize epoch meters.
     batch_counter = 0
     epoch_start_time = time.time()
@@ -135,9 +136,8 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
         img0, img1, labels = img0.to(device), img1.to(device), labels.to(device)  # move to GPU
         optimizer.zero_grad()  # clear the calculated grad in previous batch
         outputs = net(img0, img1)
-        # loss = criterion(outputs.view(-1), labels.float())
         loss = criterion(outputs, labels.float().view(outputs.shape))
-        # add bach loss and acc to epoch-loss\acc
+        # add batch loss and acc to epoch-loss\acc
         # loss:
         train_loss += loss.item()
         # acc:
@@ -189,14 +189,15 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
         epoch+1, epoch_time,
         train_acc, train_acc_diff, val_acc, val_acc_diff,
         train_loss, train_loss_diff, val_loss, val_loss_diff, "(I)" if IMPROVED else ""))
-    #
-    if SAVE_MODELS:
-        if IMPROVED:
-            torch.save(net.state_dict(), root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}.pt'.format(model_time, epoch, val_loss, val_acc))
+
+    if SAVE_MODELS and IMPROVED:
+        torch.save(net.state_dict(), root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}.pt'.format(model_name, epoch, val_loss, val_acc))
     np.save(root_folder / 'curves' / model_name, train_history)
+# endregion
 
-    # show_plot(train_history)
-
-if CREATE_SUBMISSION:
+# region Submission
+if SAVE_MODELS and CREATE_SUBMISSION:
     best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc')
     create_submission(root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], net=net)
+    print('Created submission file', best_model_name.replace('.pt', '.csv'))
+# endregion

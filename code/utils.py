@@ -169,9 +169,9 @@ def create_submission(root_folder, model_name, transform, net=None):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # get the sample submission file for loading pairs, and create the new submission file.
-    sampe_submission_path = root_folder / 'data' / 'faces' / 'sample_submission.csv'
+    sample_submission_path = root_folder / 'data' / 'faces' / 'sample_submission.csv'
     dst_submission_path = root_folder / 'submissions_files' / model_name.replace('.pt', '.csv')
-    copyfile(sampe_submission_path, dst_submission_path)
+    copyfile(sample_submission_path, dst_submission_path)
     df_submit = pd.read_csv(str(dst_submission_path))
 
     # create the testset and data loader:
@@ -192,11 +192,12 @@ def create_submission(root_folder, model_name, transform, net=None):
         row, img0, img1 = row.cuda(), img0.cuda(), img1.cuda()
 
         output = net(img0, img1)
-        sm = output.softmax(dim=1)
-        _, pred = torch.max(sm, 1)
+        predicted = torch.round(output.data).long().view(-1)
+        # sm = output.softmax(dim=1)
+        # _, pred = torch.round(sm, 1)
 
         for idx, item in enumerate(row.cpu()):
-            df_submit.loc[item.item(), 'is_related'] = pred[idx].item()
+            df_submit.loc[item.item(), 'is_related'] = predicted[idx].item()
 
     # write submission
     df_submit['is_related'].value_counts()
