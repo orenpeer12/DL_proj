@@ -29,8 +29,8 @@ hyper_params = {
     "NUMBER_EPOCHS": 200,
     "weight_decay": 0,
     "decay_lr": True,
-    "lr_decay_factor": 0.1,
-    "lr_decay_rate": 20,  # decay every X epochs
+    "lr_decay_factor": 0.5,
+    "lr_patience": 20,  # decay every X epochs
     "min_lr": 1e-6,
     "Comments": "Resnet 50, classifier 128->32->1"
 }
@@ -45,18 +45,22 @@ image_transforms = {
     transforms.Compose([
         transforms.RandomRotation(degrees=3),
         transforms.RandomHorizontalFlip(),
+        transforms.Resize(256),
+        transforms.CenterCrop(197),
         transforms.ToTensor(),
         scale_tensor_255,
         transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
-                             std=[1, 1, 1]),
+                             std=[1, 1, 1])
     ]),
     # Validation does not use augmentation
     'valid':
     transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(197),
         transforms.ToTensor(),
         scale_tensor_255,
         transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
-                             std=[1, 1, 1]),
+                             std=[1, 1, 1])
     ]),
 }
 # image_transforms = {"train": None, "valid": None}
@@ -97,7 +101,9 @@ net.to(device)
 # criterion = nn.CrossEntropyLoss(reduction='sum').to(device)    # use a Classification Cross-Entropy loss
 criterion = nn.BCELoss().to(device)     # try F.BCE...
 optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
-lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=hyper_params['lr_decay_factor'], patience=10, verbose=1)
+lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer, mode='max', factor=hyper_params['lr_decay_factor'],
+    patience=hyper_params['lr_patience'], verbose=1)
 
 train_history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
 best_val_acc = 0

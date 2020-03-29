@@ -1,5 +1,4 @@
 import os
-
 import torch
 from torch import nn
 from torchvision import models
@@ -41,10 +40,10 @@ class SiameseNetwork(nn.Module):
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
         self.classifier = nn.Sequential(nn.Linear(2 * num_features, 128),
                                         nn.ReLU(),
-                                        # nn.Dropout(0.3),
+                                        nn.Dropout(0.1),
                                         nn.Linear(128, 32),
                                         nn.ReLU(),
-                                        # nn.Dropout(0.3),
+                                        nn.Dropout(0.1),
                                         nn.Linear(32, 1),
                                         nn.Sigmoid()
                                         )
