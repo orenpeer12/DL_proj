@@ -69,7 +69,7 @@ image_transforms = {
 
 val_families = "F09" # all families starts with this str will be sent to validation set.
 # root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-root_folder = os.getcwd()
+root_folder = Path(os.path.dirname(os.getcwd()))
 
 # path to the folder contains all data folders and csv files
 data_path = root_folder / 'data' / 'faces'
