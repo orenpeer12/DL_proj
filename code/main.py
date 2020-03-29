@@ -12,27 +12,27 @@ from OurDataset import *
 from SiameseNetwork import *
 from utils import *
 import json
-
+# BB
 # setting the seed
 # np.random.seed(43)
 NUM_WORKERS = 4
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 SAVE_MODELS = False
-CREATE_SUBMISSION = False
+CREATE_SUBMISSION = True
 
 # Hyper params
 hyper_params = {
     # "init_lr": 7e-4,
     "init_lr": 1e-4,
-    "BATCH_SIZE": 50,
-    "NUMBER_EPOCHS": 200,
+    "BATCH_SIZE": 32,
+    "NUMBER_EPOCHS": 300,
     "weight_decay": 0,
     "decay_lr": True,
     "lr_decay_factor": 0.5,
-    "lr_patience": 20,  # decay every X epochs
+    "lr_patience": 15,  # decay every X epochs without improve
     "min_lr": 1e-6,
-    "Comments": "Resnet 50, classifier 128->32->1"
+    "Comments": "Resnet 50, classifier 64->32->1"
 }
 print("Hyper parameters:", hyper_params)
 
@@ -68,7 +68,8 @@ image_transforms = {
 # \\data\\faces
 
 val_families = "F09" # all families starts with this str will be sent to validation set.
-root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+root_folder = os.getcwd()
 
 # path to the folder contains all data folders and csv files
 data_path = root_folder / 'data' / 'faces'
