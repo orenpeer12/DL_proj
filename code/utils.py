@@ -260,3 +260,6 @@ def get_train_val(family_name, data_path):
     val = [x for x in relationships if val_famillies in x[0]]
 
     return train, val, train_person_to_images_map, val_person_to_images_map
+
+def scale_tensor_255(tensor, scale=255):
+    return tensor.mul(scale)

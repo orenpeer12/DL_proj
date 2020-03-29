@@ -23,14 +23,16 @@ CREATE_SUBMISSION = False
 
 # Hyper params
 hyper_params = {
-    "init_lr": 1e-3,
-    "BATCH_SIZE": 16,
+    # "init_lr": 7e-4,
+    "init_lr": 1e-4,
+    "BATCH_SIZE": 50,
     "NUMBER_EPOCHS": 200,
     "weight_decay": 0,
     "decay_lr": True,
-    "lr_decay_factor": 0.5,
+    "lr_decay_factor": 0.1,
     "lr_decay_rate": 20,  # decay every X epochs
-    "min_lr": 1e-6
+    "min_lr": 1e-6,
+    "Comments": "Resnet 50, classifier 128->32->1"
 }
 print("Hyper parameters:", hyper_params)
 
@@ -41,22 +43,20 @@ image_transforms = {
     # Train uses data augmentation
     'train':
     transforms.Compose([
-        # transforms.RandomRotation(degrees=3),
-        # transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(degrees=3),
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        # transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
-        #                      std=[1, 1, 1])
-        # transforms.Normalize([0.485, 0.456, 0.406],
-        #                      [0.229, 0.224, 0.225])
+        scale_tensor_255,
+        transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
+                             std=[1, 1, 1]),
     ]),
     # Validation does not use augmentation
     'valid':
     transforms.Compose([
         transforms.ToTensor(),
-        # transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
-        #                      std=[1, 1, 1])
-        # transforms.Normalize([0.485, 0.456, 0.406],
-        #                      [0.229, 0.224, 0.225])
+        scale_tensor_255,
+        transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
+                             std=[1, 1, 1]),
     ]),
 }
 # image_transforms = {"train": None, "valid": None}
@@ -64,7 +64,6 @@ image_transforms = {
 # \\data\\faces
 
 val_families = "F09" # all families starts with this str will be sent to validation set.
-
 root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # path to the folder contains all data folders and csv files
@@ -92,16 +91,13 @@ trainloader, valloader = create_datasets(folder_dataset, train_pairs, val_pairs,
 # print(example_batch[2].numpy())
 
 net = SiameseNetwork(model_time)
-# net = VDCNN(model_time)
-# net = ResNet(ResidualBlock, [2, 2, 2])
-
 # net = nn.DataParallel(net)
 net.to(device)
 
 # criterion = nn.CrossEntropyLoss(reduction='sum').to(device)    # use a Classification Cross-Entropy loss
 criterion = nn.BCELoss().to(device)     # try F.BCE...
 optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
-lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=10, verbose=1)
+lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=hyper_params['lr_decay_factor'], patience=10, verbose=1)
 
 train_history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
 best_val_acc = 0

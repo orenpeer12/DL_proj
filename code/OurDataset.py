@@ -70,19 +70,15 @@ class OurDataset(Dataset):
         img0 = img0.convert('RGB')
         img1 = img1.convert('RGB')
 
-        mean = (131.0912, 103.8827, 91.4953)
+        # mean = (131.0912, 103.8827, 91.4953)
         # mean = (91.4953, 103.8827, 131.0912)
         # img0 = Image.fromarray(np.uint8(np.array(img0) - mean))
         # img1 = Image.fromarray(np.uint8(np.array(img1) - mean))
-        img0 = np.array(img0) - mean
-        img1 = np.array(img1) - mean
+        # img0 = np.array(img0) - mean
+        # img1 = np.array(img1) - mean
 
         if self.transform is not None:
-            # r0, g0, b0 = img0.split()
-            # img0 = Image.merge("RGB", (b0, g0, r0))
             img0 = self.transform(img0)
-            # r1, g1, b1 = img1.split()
-            # img1 = Image.merge("RGB", (b1, g1, r1))
             img1 = self.transform(img1)
 
         return img0.float(), img1.float(), relative_label  # the returned data from dataloader is img=[batch_size,channels,width,length], relative_label=[batch_size,label]
