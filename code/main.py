@@ -24,17 +24,18 @@ CREATE_SUBMISSION = False
 # Hyper params
 hyper_params = {
     "init_lr": 1e-5,
-    "BATCH_SIZE": 32,
+    "BATCH_SIZE": 16,
     "NUMBER_EPOCHS": 200,
     "weight_decay": 0,
     "decay_lr": True,
-    "lr_decay_factor": 0.5,
+    "lr_decay_factor": 0.1,
     "lr_decay_rate": 20,  # decay every X epochs
     "min_lr": 1e-6
 }
 print("Hyper parameters:", hyper_params)
 
 model_time = round(time.time())
+model_name = time.strftime('%d.%m.%H.%M.%S')
 
 # Image transformations
 image_transforms = {
@@ -43,6 +44,7 @@ image_transforms = {
     transforms.Compose([
         # transforms.RandomRotation(degrees=3),
         # transforms.RandomHorizontalFlip(),
+        # transforms.RandomGrayscale(),
         transforms.ToTensor(),
         # transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
         #                      std=[1, 1, 1])
@@ -70,9 +72,9 @@ root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # path to the folder contains all data folders and csv files
 data_path = root_folder / 'data' / 'faces'
 if SAVE_MODELS:
-    os.mkdir(root_folder / 'models' / str(model_time))
+    os.mkdir(root_folder / 'models' / model_name)
     # save hyper parameters to json:
-    with open(str(root_folder / 'models' / str(model_time) / "Hyper_Params.json"), 'w') as fp:
+    with open(str(root_folder / 'models' / model_name / "Hyper_Params.json"), 'w') as fp:
         json.dump(hyper_params, fp)
 
 train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs = load_data(data_path)
@@ -91,7 +93,7 @@ trainloader, valloader = create_datasets(folder_dataset, train_pairs, val_pairs,
 # imshow(torchvision.utils.make_grid(concatenated))
 # print(example_batch[2].numpy())
 
-net = SiameseNetwork(model_time)
+net = SiameseNetwork(model_name)
 # net = VDCNN(model_time)
 # net = ResNet(ResidualBlock, [2, 2, 2])
 
@@ -101,13 +103,15 @@ net.to(device)
 # criterion = nn.CrossEntropyLoss(reduction='sum').to(device)    # use a Classification Cross-Entropy loss
 criterion = nn.BCELoss().to(device)     # try F.BCE...
 optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
-lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=10, verbose=1)
+lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max',
+                                                    factor=hyper_params["lr_decay_factor"],
+                                                    patience=hyper_params["lr_decay_rate"], verbose=1)
 
 train_history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
 best_val_acc = 0
 IMPROVED = False     # save model only if it improves val acc.
 curr_lr = hyper_params['init_lr']
-print("Start training model {}! init lr: {}".format(model_time, curr_lr))
+print("Start training model {}! init lr: {}".format(model_name, curr_lr))
 for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
     # Decay learning rate
     # if hyper_params['decay_lr'] and (epoch) % hyper_params['lr_decay_rate'] == 0 \
@@ -188,11 +192,11 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
     #
     if SAVE_MODELS:
         if IMPROVED:
-            torch.save(net.state_dict(), root_folder / 'models' / str(model_time) / '{}_e{}_vl{:.4f}_va{:.2f}.pt'.format(model_time, epoch, val_loss, val_acc))
-    np.save(root_folder / 'curves' / str(model_time), train_history)
+            torch.save(net.state_dict(), root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}.pt'.format(model_time, epoch, val_loss, val_acc))
+    np.save(root_folder / 'curves' / model_name, train_history)
 
     # show_plot(train_history)
 
 if CREATE_SUBMISSION:
-    model_name = get_best_model(model_folder=root_folder / 'models' / str(model_time), measure='val_acc')
-    create_submission(root_folder=root_folder, model_name=model_name, transform=image_transforms['valid'], net=net)
+    best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc')
+    create_submission(root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], net=net)

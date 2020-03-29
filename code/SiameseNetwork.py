@@ -13,10 +13,10 @@ from pre_trained_models.senet50_256_pytorch.senet50_256 import senet50_256
 
 
 class SiameseNetwork(nn.Module):
-    def __init__(self, model_time):
+    def __init__(self, model_name):
         super(SiameseNetwork, self).__init__()
 
-        self.name = str(model_time)
+        self.name = model_name
 
         # load pre-trained resnet model
         root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -41,10 +41,10 @@ class SiameseNetwork(nn.Module):
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
         self.classifier = nn.Sequential(nn.Linear(2 * num_features, 100),
                                         nn.ReLU(),
-                                        # nn.Dropout(0.3),
+                                        nn.Dropout(0.25),
                                         nn.Linear(100, 25),
                                         nn.ReLU(),
-                                        # nn.Dropout(0.3),
+                                        nn.Dropout(0.25),
                                         nn.Linear(25, 1),
                                         nn.Sigmoid()
                                         )
