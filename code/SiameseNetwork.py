@@ -20,11 +20,11 @@ class SiameseNetwork(nn.Module):
         # load pre-trained resnet model
         root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         resnet50_model = resnet50_ft(
-            root_folder / 'pre_trained_models' / 'resnet50_ft_pytorch' / 'resnet50_ft_dims_2048.pth')
+            root_folder / 'pre_trained_models_weights' / 'resnet50_ft_pytorch' / 'resnet50_ft_dims_2048.pth')
         resnet50_128_model = resnet50_128(
-            root_folder / 'pre_trained_models' / 'resnet50_128_pytorch' / 'resnet50_128.pth')
+            root_folder / 'pre_trained_models_weights' / 'resnet50_128_pytorch' / 'resnet50_128.pth')
         senet50_256_model = senet50_256(
-            root_folder / 'pre_trained_models' / 'senet50_256_pytorch' / 'senet50_256.pth')
+            root_folder / 'pre_trained_models_weights' / 'senet50_256_pytorch' / 'senet50_256.pth')
 
         pretrained_model = resnet50_model
 

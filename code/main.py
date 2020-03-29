@@ -12,11 +12,10 @@ from OurDataset import *
 from SiameseNetwork import *
 from utils import *
 import json
-# BB
 # setting the seed
 # np.random.seed(43)
 NUM_WORKERS = 4
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 SAVE_MODELS = False
 CREATE_SUBMISSION = True
