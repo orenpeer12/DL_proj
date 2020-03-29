@@ -12,25 +12,25 @@ from OurDataset import *
 from SiameseNetwork import *
 from utils import *
 import json
-
 # setting the seed
 # np.random.seed(43)
 NUM_WORKERS = 4
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 SAVE_MODELS = False
-CREATE_SUBMISSION = False
+CREATE_SUBMISSION = True
 
 # Hyper params
 hyper_params = {
-    "init_lr": 1e-5,
-    "BATCH_SIZE": 16,
-    "NUMBER_EPOCHS": 200,
+    "init_lr": 1e-4,
+    "BATCH_SIZE": 32,
+    "NUMBER_EPOCHS": 300,
     "weight_decay": 0,
     "decay_lr": True,
-    "lr_decay_factor": 0.1,
-    "lr_decay_rate": 20,  # decay every X epochs
-    "min_lr": 1e-6
+    "lr_decay_factor": 0.5,
+    "lr_patience": 15,  # decay every X epochs without improve
+    "min_lr": 1e-6,
+    "Comments": "Resnet 50, classifier 64->32->1"
 }
 print("Hyper parameters:", hyper_params)
 
@@ -42,23 +42,25 @@ image_transforms = {
     # Train uses data augmentation
     'train':
     transforms.Compose([
-        # transforms.RandomRotation(degrees=3),
-        # transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(degrees=3),
+        transforms.RandomHorizontalFlip(),
         # transforms.RandomGrayscale(),
+        transforms.Resize(256),
+        transforms.CenterCrop(197),
         transforms.ToTensor(),
-        # transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
-        #                      std=[1, 1, 1])
-        # transforms.Normalize([0.485, 0.456, 0.406],
-        #                      [0.229, 0.224, 0.225])
+        scale_tensor_255,
+        transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
+                             std=[1, 1, 1])
     ]),
     # Validation does not use augmentation
     'valid':
     transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(197),
         transforms.ToTensor(),
-        # transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
-        #                      std=[1, 1, 1])
-        # transforms.Normalize([0.485, 0.456, 0.406],
-        #                      [0.229, 0.224, 0.225])
+        scale_tensor_255,
+        transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
+                             std=[1, 1, 1])
     ]),
 }
 # image_transforms = {"train": None, "valid": None}
@@ -66,8 +68,8 @@ image_transforms = {
 # \\data\\faces
 
 val_families = "F09" # all families starts with this str will be sent to validation set.
-
-root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+root_folder = os.getcwd()
 
 # path to the folder contains all data folders and csv files
 data_path = root_folder / 'data' / 'faces'
@@ -94,18 +96,16 @@ trainloader, valloader = create_datasets(folder_dataset, train_pairs, val_pairs,
 # print(example_batch[2].numpy())
 
 net = SiameseNetwork(model_name)
-# net = VDCNN(model_time)
-# net = ResNet(ResidualBlock, [2, 2, 2])
-
 # net = nn.DataParallel(net)
 net.to(device)
 
 # criterion = nn.CrossEntropyLoss(reduction='sum').to(device)    # use a Classification Cross-Entropy loss
 criterion = nn.BCELoss().to(device)     # try F.BCE...
 optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
-lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max',
-                                                    factor=hyper_params["lr_decay_factor"],
-                                                    patience=hyper_params["lr_decay_rate"], verbose=1)
+
+lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer, mode='max', factor=hyper_params['lr_decay_factor'],
+    patience=hyper_params['lr_patience'], verbose=1)
 
 train_history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
 best_val_acc = 0

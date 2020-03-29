@@ -1,5 +1,4 @@
 import os
-
 import torch
 from torch import nn
 from torchvision import models
@@ -21,31 +20,29 @@ class SiameseNetwork(nn.Module):
         # load pre-trained resnet model
         root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         resnet50_model = resnet50_ft(
-            root_folder / 'pre_trained_models' / 'resnet50_ft_pytorch' / 'resnet50_ft_dims_2048.pth')
+            root_folder / 'pre_trained_models_weights' / 'resnet50_ft_pytorch' / 'resnet50_ft_dims_2048.pth')
         resnet50_128_model = resnet50_128(
-            root_folder / 'pre_trained_models' / 'resnet50_128_pytorch' / 'resnet50_128.pth')
+            root_folder / 'pre_trained_models_weights' / 'resnet50_128_pytorch' / 'resnet50_128.pth')
         senet50_256_model = senet50_256(
-            root_folder / 'pre_trained_models' / 'senet50_256_pytorch' / 'senet50_256.pth')
+            root_folder / 'pre_trained_models_weights' / 'senet50_256_pytorch' / 'senet50_256.pth')
 
         pretrained_model = resnet50_model
 
         self.features = pretrained_model
-
-        # Load trained model for transfer learning:
-        # self.model = models.vgg16_bn(pretrained=True)
-        # num_features = self.features.feat_extract.out_channels     # VGG
         num_features = self.features.classifier.in_channels
+        # throw away last layer ("classifier")
+        self.features._modules.popitem()
         print("features space size: {}".format(num_features))
         # common part ('siamese')
         # self.model.classifier = self.model.classifier[:-1]
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
-        self.classifier = nn.Sequential(nn.Linear(2 * num_features, 100),
+        self.classifier = nn.Sequential(nn.Linear(2 * num_features, 64),
                                         nn.ReLU(),
-                                        nn.Dropout(0.25),
-                                        nn.Linear(100, 25),
+                                        # nn.Dropout(0.1),
+                                        nn.Linear(64, 32),
                                         nn.ReLU(),
-                                        nn.Dropout(0.25),
-                                        nn.Linear(25, 1),
+                                        # nn.Dropout(0.1),
+                                        nn.Linear(32, 1),
                                         nn.Sigmoid()
                                         )
 
@@ -69,8 +66,8 @@ class SiameseNetwork(nn.Module):
 
         for param in self.features.parameters():
             param.requires_grad = True
-        for param in self.features.classifier.parameters():
-            param.requires_grad = False
+        # for param in self.features.classifier.parameters():
+        #     param.requires_grad = False
 
 
         # for i, param in enumerate(self.model.classifier.parameters()):
