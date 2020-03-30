@@ -101,7 +101,7 @@ for val_families in val_sets:
 
     # region Define Model
     model_name = time.strftime('%d.%m.%H.%M.%S')
-    ensemble.append(model_name)
+    ensemble.append({"model name": model_name, "val family:": val_families})
     net = SiameseNetwork(model_name)
     net.to(device)
     # endregion
