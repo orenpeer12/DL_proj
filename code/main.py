@@ -178,19 +178,20 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
     # LR Scheduler
     lr_scheduler.step(val_acc)
     curr_lr = optimizer.param_groups[0]['lr']
+
     if val_acc > best_val_acc:
         best_val_acc = val_acc
         IMPROVED = True
 
-    if epoch % 10 == 0:
+    if epoch % 5 == 0:
         def melt_model(net):
             melt_ratio = 0.8
             for p in net.features.parameters():
                 if random.uniform(0, 1) > melt_ratio:
-                    p.require_grad = False
+                    p.require_grad = True
             count_params(net)
             optimizer = optim.Adam(net.parameters(), lr=curr_lr, weight_decay=hyper_params["weight_decay"])
-            count_params(net)
+
         melt_model(net)
 
     train_history["train_loss"].append(train_loss); train_history["val_loss"].append(val_loss)
