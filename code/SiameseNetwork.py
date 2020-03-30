@@ -28,8 +28,8 @@ class SiameseNetwork(nn.Module):
             root_folder / 'pre_trained_models_weights' / 'senet50_256_pytorch' / 'senet50_256.pth')
 
         # pretrained_model = resnet50_model
-        pretrained_model = resnet50_128_model
-        # pretrained_model = senet50_256_model
+        # pretrained_model = resnet50_128_model
+        pretrained_model = senet50_256_model
 
         self.features = pretrained_model
         # throw away last layer ("classifier") in resnet50:

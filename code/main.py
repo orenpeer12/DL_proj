@@ -21,7 +21,7 @@ import os
 # np.random.seed(43)
 NUM_WORKERS = 4
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-SAVE_MODELS = False
+SAVE_MODELS = True
 CREATE_SUBMISSION = True
 
 # for colab:
