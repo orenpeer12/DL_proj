@@ -22,12 +22,12 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 SAVE_MODELS = True
 CREATE_SUBMISSION = True
 # root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-root_folder = Path(os.path.dirname(os.getcwd()))
+root_folder = Path(os.getcwd())
 # endregion
 
 # region Hyper Parameters
 hyper_params = {
-    "init_lr": 1e-5,
+    "init_lr": 1e-4,
     "BATCH_SIZE": 16,
     "NUMBER_EPOCHS": 10,
     "weight_decay": 0,

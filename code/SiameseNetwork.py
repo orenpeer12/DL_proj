@@ -65,7 +65,7 @@ class SiameseNetwork(nn.Module):
         #         print(i, name, ": Not frozen!")
 
         for param in self.features.parameters():
-            param.requires_grad = True
+            param.requires_grad = False
         # for param in self.features.classifier.parameters():
         #     param.requires_grad = False
 
@@ -126,8 +126,8 @@ class SiameseNetwork(nn.Module):
 
         cl_params = 17684919
 
-        trainable_model_parameters = filter(lambda p: p.requires_grad, self.features.parameters())
-        non_trainable_model_parameters = filter(lambda p: not (p.requires_grad), self.features.parameters())
+        trainable_model_parameters = filter(lambda p: p.requires_grad, self.parameters())
+        non_trainable_model_parameters = filter(lambda p: not (p.requires_grad), self.parameters())
         trainable_params = sum([np.prod(p.size()) for p in trainable_model_parameters])
         non_trainable_params = sum([np.prod(p.size()) for p in non_trainable_model_parameters])
         print("Num. of trainable parameters: {:,}, num. of frozen parameters: {:,}, total: {:,}".format(
