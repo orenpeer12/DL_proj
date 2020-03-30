@@ -17,12 +17,17 @@ import os
 # endregion
 
 # region Run Settings and Definitions
+
 # np.random.seed(43)
 NUM_WORKERS = 4
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-SAVE_MODELS = True
+SAVE_MODELS = False
 CREATE_SUBMISSION = True
+
+# for colab:
+# root_folder = Path('/root/DL_proj/')
 root_folder = Path(os.getcwd())
+
 # set kaggle folder
 os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
@@ -30,8 +35,8 @@ os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # region Hyper Parameters
 hyper_params = {
     "init_lr": 1e-4,
-    "BATCH_SIZE": 16,
-    "NUMBER_EPOCHS": 100,
+    "BATCH_SIZE": 64,
+    "NUMBER_EPOCHS": 200,
     "weight_decay": 0,
     "decay_lr": True,
     "lr_decay_factor": 0.5,
@@ -74,6 +79,7 @@ val_families = "F09"  # all families starts with this str will be sent to valida
 
 # path to the folder contains all data folders and csv files
 data_path = root_folder / 'data' / 'faces'
+print("data_path: ", data_path)
 train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs = load_data(data_path)
 folder_dataset = dset.ImageFolder(root=data_path / 'train')
 trainloader, valloader = create_datasets(folder_dataset, train_pairs, val_pairs, image_transforms,
@@ -145,7 +151,6 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
         train_loss += loss.item()
         # acc:
         predicted = torch.round(outputs.data).long().view(-1)   # FOR BCE
-        # _, predicted = torch.max(outputs.data, 1) # FOR CR
         train_acc += (predicted == labels).sum().item()
         loss.backward()
         optimizer.step()

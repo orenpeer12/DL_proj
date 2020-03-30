@@ -521,7 +521,7 @@ class Senet50_256(nn.Module):
         pool5_7x7_s1 = self.pool5_7x7_s1(conv5_3x)
         feat_extract_preflatten = self.feat_extract(pool5_7x7_s1)
         feat_extract = feat_extract_preflatten.view(feat_extract_preflatten.size(0), -1)
-        return feat_extract, feat_extract_preflatten
+        return feat_extract
 
 def senet50_256(weights_path=None, **kwargs):
     """
