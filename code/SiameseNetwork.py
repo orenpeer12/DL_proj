@@ -6,9 +6,9 @@ import numpy as np
 from pathlib import Path
 # import torch.functional as F
 from torch.nn.init import kaiming_normal_
-from pre_trained_models.resnet50_ft_pytorch.resnet50_ft_dims_2048 import resnet50_ft
-from pre_trained_models.resnet50_128_pytorch.resnet50_128 import resnet50_128
-from pre_trained_models.senet50_256_pytorch.senet50_256 import senet50_256
+from pre_trained_models.resnet50_ft_pytorch.resnet50_ft_dims_2048 import resnet50_ft, Resnet50_ft
+from pre_trained_models.resnet50_128_pytorch.resnet50_128 import resnet50_128, Resnet50_128
+from pre_trained_models.senet50_256_pytorch.senet50_256 import senet50_256, Senet50_256
 from utils import count_params
 
 class SiameseNetwork(nn.Module):
@@ -26,12 +26,20 @@ class SiameseNetwork(nn.Module):
         senet50_256_model = senet50_256(
             root_folder / 'pre_trained_models_weights' / 'senet50_256_pytorch' / 'senet50_256.pth')
 
-        pretrained_model = resnet50_model
+        # pretrained_model = resnet50_model
+        pretrained_model = resnet50_128_model
+        # pretrained_model = senet50_256_model
 
         self.features = pretrained_model
-        num_features = self.features.classifier.in_channels
-        # throw away last layer ("classifier")
-        self.features._modules.popitem()
+        # throw away last layer ("classifier") in resnet50:
+        if isinstance(self.features, Resnet50_ft):
+            num_features = self.features.classifier.in_channels
+            self.features._modules.popitem()
+
+        elif isinstance(self.features, Resnet50_128):
+            num_features = 128
+        elif isinstance(self.features, Senet50_256):
+            num_features = 256
         print("features space size: {}".format(num_features))
         # common part ('siamese')
         # self.model.classifier = self.model.classifier[:-1]
@@ -65,7 +73,7 @@ class SiameseNetwork(nn.Module):
         #         print(i, name, ": Not frozen!")
 
         for param in self.features.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
         # for param in self.features.classifier.parameters():
         #     param.requires_grad = False
 
@@ -121,7 +129,7 @@ class SiameseNetwork(nn.Module):
 
 
     def train(self):
-        self.features.eval()
+        self.features.train()
         self.classifier.train()
 
     def eval(self):
