@@ -33,7 +33,7 @@ os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
 val_sets = ["F07", "F08", "F09", "F07", "F08", "F09"]
-val_sets = ["F09"]
+# val_sets = ["F09"]
 ensemble = []
 
 # For now, ensembles are different in val-sets.
@@ -42,7 +42,7 @@ for val_families in val_sets:
     hyper_params = {
         "init_lr": 1e-5,
         "BATCH_SIZE": 32,
-        "NUMBER_EPOCHS": 50,
+        "NUMBER_EPOCHS": 100,
         "weight_decay": 0,
         "decay_lr": True,
         "lr_decay_factor": 0.5,
