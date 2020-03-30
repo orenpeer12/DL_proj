@@ -29,7 +29,7 @@ root_folder = Path(os.getcwd())
 # region Hyper Parameters
 hyper_params = {
     "init_lr": 1e-4,
-    "BATCH_SIZE": 64,
+    "BATCH_SIZE": 16,
     "NUMBER_EPOCHS": 100,
     "weight_decay": 0,
     "decay_lr": True,
@@ -182,16 +182,7 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
         best_val_acc = val_acc
         IMPROVED = True
 
-    if epoch % 5 == 0:
-        def melt_model(net):
-            melt_ratio = 0.8
-            for p in net.features.parameters():
-                if random.uniform(0, 1) > melt_ratio:
-                    p.require_grad = True
-            count_params(net)
-            optimizer = optim.Adam(net.parameters(), lr=curr_lr, weight_decay=hyper_params["weight_decay"])
-
-        melt_model(net)
+    # melt_model(net)
 
     train_history["train_loss"].append(train_loss); train_history["val_loss"].append(val_loss)
     train_history["train_acc"].append(train_acc); train_history["val_acc"].append(val_acc)

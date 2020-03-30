@@ -266,3 +266,13 @@ def count_params(net):
     non_trainable_params = sum([np.prod(p.size()) for p in non_trainable_model_parameters])
     print("Num. of trainable parameters: {:,}, num. of frozen parameters: {:,}, total: {:,}".format(
         trainable_params, non_trainable_params, trainable_params + non_trainable_params))
+
+
+def melt_model(net):
+    melt_ratio = 0.
+    for p in net.features.parameters():
+        if random.uniform(0, 1) > melt_ratio:
+            p.require_grad = True
+    net.to(device)
+    optimizer = optim.Adam(net.parameters(), lr=curr_lr, weight_decay=hyper_params["weight_decay"])
+    count_params(net)
