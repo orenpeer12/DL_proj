@@ -26,8 +26,8 @@ class SiameseNetwork(nn.Module):
         senet50_256_model = senet50_256(
             root_folder / 'pre_trained_models_weights' / 'senet50_256_pytorch' / 'senet50_256.pth')
 
-        # pretrained_model = resnet50_model
-        pretrained_model = resnet50_128_model
+        pretrained_model = resnet50_model
+        # pretrained_model = resnet50_128_model
         # pretrained_model = senet50_256_model
 
         self.features = pretrained_model

@@ -166,7 +166,7 @@ def extract_diff_str(train_history):
 
 def create_submission(root_folder, model_name, transform, net=None):
     # gpu or cpu:
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # get the sample submission file for loading pairs, and create the new submission file.
     sample_submission_path = root_folder / 'data' / 'faces' / 'sample_submission.csv'
