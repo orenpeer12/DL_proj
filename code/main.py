@@ -19,7 +19,7 @@ import os
 # region Run Settings and Definitions
 
 # np.random.seed(43)
-NUM_WORKERS = 4
+NUM_WORKERS = 8
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 SAVE_MODELS = True
 CREATE_SUBMISSION = True
@@ -33,15 +33,16 @@ os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
 val_sets = ["F07", "F08", "F09", "F07", "F08", "F09"]
+val_sets = ["F09"]
 ensemble = []
 
 # For now, ensembles are different in val-sets.
 for val_families in val_sets:
     # region Hyper Parameters
     hyper_params = {
-        "init_lr": 1e-4,
+        "init_lr": 1e-5,
         "BATCH_SIZE": 32,
-        "NUMBER_EPOCHS": 200,
+        "NUMBER_EPOCHS": 50,
         "weight_decay": 0,
         "decay_lr": True,
         "lr_decay_factor": 0.5,
@@ -58,7 +59,7 @@ for val_families in val_sets:
         transforms.Compose([
             transforms.RandomRotation(degrees=3),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomGrayscale(),
+            # transforms.RandomGrayscale(),
             # transforms.Resize(256),
             # transforms.CenterCrop(197),
             transforms.ToTensor(),
@@ -122,6 +123,7 @@ for val_families in val_sets:
         hyper_params["criterion"] = criterion.__str__()
         hyper_params["optimizer"] = optimizer.__str__()
         hyper_params["transforms"] = transforms.__str__()
+        hyper_params["val_families"] = val_families
 
         os.mkdir(root_folder / 'models' / model_name)
         # save hyper parameters to json:
@@ -208,24 +210,24 @@ for val_families in val_sets:
             train_loss, train_loss_diff, val_loss, val_loss_diff, "(I)" if IMPROVED else ""))
 
         if SAVE_MODELS and IMPROVED:
-            torch.save(net.state_dict(), root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}.pt'.format(model_name, epoch, val_loss, val_acc))
+            torch.save(net.state_dict(), root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}.pt'.format(model_name, epoch+1, val_loss, val_acc))
         np.save(root_folder / 'curves' / model_name, train_history)
     # endregion
 
-# Save ensemble to json...
-if SAVE_MODELS:
-    with open(str(root_folder / 'ensembles' / ensemble[0]) + ".json", 'w') as fp:
-        json.dump(ensemble, fp)
+    # # Save ensemble to json...
+    # if SAVE_MODELS:
+    #     with open(str(root_folder / 'ensembles' / ensemble[0]) + ".json", 'w') as fp:
+    #         json.dump(ensemble, fp)
 
-# region Submission
-if SAVE_MODELS and CREATE_SUBMISSION:
-    best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc')
-    create_submission(root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], net=net)
-    print('Created submission file', best_model_name.replace('.pt', '.csv'))
-    submission_file_path = str(root_folder / 'submissions_files' / best_model_name.replace('.pt', '.csv'))
-    # submit file
-    os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' + \
-              submission_file_path + ' -m ' + best_model_name.replace('.pt', '.csv'))
-    # show submissions
-    os.system('kaggle competitions submissions recognizing-faces-in-the-wild')
-# endregion
+    # region Submission
+    if SAVE_MODELS and CREATE_SUBMISSION:
+        best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc', measure_rank=1)
+        create_submission(root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], net=net)
+        print('Created submission file', best_model_name.replace('.pt', '.csv'))
+        submission_file_path = str(root_folder / 'submissions_files' / best_model_name.replace('.pt', '.csv'))
+        # submit file
+        os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' + \
+                  submission_file_path + ' -m ' + best_model_name.replace('.pt', '.csv'))
+        # show submissions
+        os.system('kaggle competitions submissions recognizing-faces-in-the-wild')
+    # endregion

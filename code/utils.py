@@ -205,7 +205,7 @@ def create_submission(root_folder, model_name, transform, net=None):
     res = df_submit.to_csv(dst_submission_path, index=False)
 
 
-def get_best_model(model_folder, measure='val_acc'):
+def get_best_model(model_folder, measure='val_acc', measure_rank=1):
     all_models = [m for m in os.listdir(model_folder) if m.endswith('.pt')]
     measures = []
     for m in all_models:
@@ -214,7 +214,7 @@ def get_best_model(model_folder, measure='val_acc'):
         if measure == 'val_loss':
             mod_measure = float(m.split('_')[2].split('vl')[-1])
         measures.append(mod_measure)
-    best_model_idx = np.argmax(measures)
+    best_model_idx = np.argsort(measures)[-measure_rank]
     return all_models[best_model_idx]
 
 
