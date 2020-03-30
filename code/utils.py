@@ -258,3 +258,11 @@ def get_train_val(family_name, data_path):
 
 def scale_tensor_255(tensor, scale=255):
     return tensor.mul(scale)
+
+def count_params(net):
+    trainable_model_parameters = filter(lambda p: p.requires_grad, net.parameters())
+    non_trainable_model_parameters = filter(lambda p: not (p.requires_grad), net.parameters())
+    trainable_params = sum([np.prod(p.size()) for p in trainable_model_parameters])
+    non_trainable_params = sum([np.prod(p.size()) for p in non_trainable_model_parameters])
+    print("Num. of trainable parameters: {:,}, num. of frozen parameters: {:,}, total: {:,}".format(
+        trainable_params, non_trainable_params, trainable_params + non_trainable_params))

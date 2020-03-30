@@ -136,3 +136,5 @@ code/vgg_face2-master/
 curves/
 models/
 pre_trained_models_weights/
+kaggle.json
+submissions_files/

@@ -9,7 +9,7 @@ from torch.nn.init import kaiming_normal_
 from pre_trained_models.resnet50_ft_pytorch.resnet50_ft_dims_2048 import resnet50_ft
 from pre_trained_models.resnet50_128_pytorch.resnet50_128 import resnet50_128
 from pre_trained_models.senet50_256_pytorch.senet50_256 import senet50_256
-
+from utils import count_params
 
 class SiameseNetwork(nn.Module):
     def __init__(self, model_name):
@@ -65,7 +65,7 @@ class SiameseNetwork(nn.Module):
         #         print(i, name, ": Not frozen!")
 
         for param in self.features.parameters():
-            param.requires_grad = True
+            param.requires_grad = False
         # for param in self.features.classifier.parameters():
         #     param.requires_grad = False
 
@@ -117,21 +117,8 @@ class SiameseNetwork(nn.Module):
 
         # self.model.classifier[-2].apply(init_weights)
         self.classifier.apply(init_weights)
+        count_params(self)
 
-        trainable_params = 0
-        non_trainable_params = 0
-        for p in self.parameters():
-            if p.requires_grad:
-                trainable_params += np.prod(p.shape)
-
-        cl_params = 17684919
-
-        trainable_model_parameters = filter(lambda p: p.requires_grad, self.features.parameters())
-        non_trainable_model_parameters = filter(lambda p: not (p.requires_grad), self.features.parameters())
-        trainable_params = sum([np.prod(p.size()) for p in trainable_model_parameters])
-        non_trainable_params = sum([np.prod(p.size()) for p in non_trainable_model_parameters])
-        print("Num. of trainable parameters: {:,}, num. of frozen parameters: {:,}, total: {:,}".format(
-            trainable_params, non_trainable_params, trainable_params + non_trainable_params))
 
     def train(self):
         self.features.eval()

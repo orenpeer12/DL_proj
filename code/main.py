@@ -20,7 +20,7 @@ import os
 # np.random.seed(43)
 NUM_WORKERS = 4
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-SAVE_MODELS = True
+SAVE_MODELS = False
 CREATE_SUBMISSION = True
 # root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 root_folder = Path(os.getcwd())
@@ -28,9 +28,9 @@ root_folder = Path(os.getcwd())
 
 # region Hyper Parameters
 hyper_params = {
-    "init_lr": 1e-5,
-    "BATCH_SIZE": 32,
-    "NUMBER_EPOCHS": 200,
+    "init_lr": 1e-4,
+    "BATCH_SIZE": 64,
+    "NUMBER_EPOCHS": 100,
     "weight_decay": 0,
     "decay_lr": True,
     "lr_decay_factor": 0.5,
@@ -176,10 +176,21 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
 
     # LR Scheduler
     lr_scheduler.step(val_acc)
-
+    curr_lr = optimizer.param_groups[0]['lr']
     if val_acc > best_val_acc:
         best_val_acc = val_acc
         IMPROVED = True
+
+    if epoch % 10 == 0:
+        def melt_model(net):
+            melt_ratio = 0.8
+            for p in net.features.parameters():
+                if random.uniform(0, 1) > melt_ratio:
+                    p.require_grad = False
+            count_params(net)
+            optimizer = optim.Adam(net.parameters(), lr=curr_lr, weight_decay=hyper_params["weight_decay"])
+            count_params(net)
+        melt_model(net)
 
     train_history["train_loss"].append(train_loss); train_history["val_loss"].append(val_loss)
     train_history["train_acc"].append(train_acc); train_history["val_acc"].append(val_acc)
