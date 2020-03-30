@@ -259,6 +259,7 @@ def get_train_val(family_name, data_path):
 def scale_tensor_255(tensor, scale=255):
     return tensor.mul(scale)
 
+
 def count_params(net):
     trainable_model_parameters = filter(lambda p: p.requires_grad, net.parameters())
     non_trainable_model_parameters = filter(lambda p: not (p.requires_grad), net.parameters())

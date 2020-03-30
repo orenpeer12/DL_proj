@@ -20,17 +20,18 @@ import os
 # np.random.seed(43)
 NUM_WORKERS = 4
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-SAVE_MODELS = False
+SAVE_MODELS = True
 CREATE_SUBMISSION = True
-# root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 root_folder = Path(os.getcwd())
+# set kaggle folder
+os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
 # region Hyper Parameters
 hyper_params = {
     "init_lr": 1e-4,
-    "BATCH_SIZE": 64,
-    "NUMBER_EPOCHS": 100,
+    "BATCH_SIZE": 16,
+    "NUMBER_EPOCHS": 2,
     "weight_decay": 0,
     "decay_lr": True,
     "lr_decay_factor": 0.5,
@@ -212,4 +213,10 @@ if SAVE_MODELS and CREATE_SUBMISSION:
     best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc')
     create_submission(root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], net=net)
     print('Created submission file', best_model_name.replace('.pt', '.csv'))
+    submission_file_path = str(root_folder / 'submissions_files' / best_model_name.replace('.pt', '.csv'))
+    # submit file
+    os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' + \
+              submission_file_path + ' -m ' + best_model_name.replace('.pt', '.csv'))
+    # show submissions
+    os.system('kaggle competitions submissions recognizing-faces-in-the-wild')
 # endregion
