@@ -35,7 +35,7 @@ hyper_params = {
     "weight_decay": 0,
     "decay_lr": True,
     "lr_decay_factor": 0.5,
-    "lr_patience": 15,  # decay every X epochs without improve
+    "lr_patience": 10,  # decay every X epochs without improve
     "min_lr": 1e-6,
 }
 print("Hyper parameters:", hyper_params)
@@ -109,6 +109,7 @@ if SAVE_MODELS:
     hyper_params["classifier"] = net.classifier.__str__()
     hyper_params["criterion"] = criterion.__str__()
     hyper_params["optimizer"] = optimizer.__str__()
+    hyper_params["transforms"] = image_transforms.__str__()
 
     os.mkdir(root_folder / 'models' / model_name)
     # save hyper parameters to json:
@@ -176,7 +177,8 @@ for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
     val_loss /= batch_counter
 
     # LR Scheduler
-    lr_scheduler.step(val_acc)
+    if hyper_params["decay_lr"]:
+        lr_scheduler.step(val_acc)
     curr_lr = optimizer.param_groups[0]['lr']
 
     if val_acc > best_val_acc:

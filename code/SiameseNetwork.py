@@ -11,6 +11,7 @@ from pre_trained_models.resnet50_128_pytorch.resnet50_128 import resnet50_128
 from pre_trained_models.senet50_256_pytorch.senet50_256 import senet50_256
 from utils import count_params
 
+
 class SiameseNetwork(nn.Module):
     def __init__(self, model_name):
         super(SiameseNetwork, self).__init__()
@@ -38,10 +39,10 @@ class SiameseNetwork(nn.Module):
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
         self.classifier = nn.Sequential(nn.Linear(2 * num_features, 64),
                                         nn.ReLU(),
-                                        # nn.Dropout(0.1),
+                                        nn.Dropout(0.15),
                                         nn.Linear(64, 32),
                                         nn.ReLU(),
-                                        # nn.Dropout(0.1),
+                                        nn.Dropout(0.15),
                                         nn.Linear(32, 1),
                                         nn.Sigmoid()
                                         )
@@ -65,10 +66,9 @@ class SiameseNetwork(nn.Module):
         #         print(i, name, ": Not frozen!")
 
         for param in self.features.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
         # for param in self.features.classifier.parameters():
         #     param.requires_grad = False
-
 
         # for i, param in enumerate(self.model.classifier.parameters()):
         #     param.requires_grad = False
@@ -119,9 +119,8 @@ class SiameseNetwork(nn.Module):
         self.classifier.apply(init_weights)
         count_params(self)
 
-
     def train(self):
-        self.features.eval()
+        self.features.train()
         self.classifier.train()
 
     def eval(self):

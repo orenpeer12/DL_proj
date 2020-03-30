@@ -61,22 +61,6 @@ class OurDataset(Dataset):
         img0 = Image.open(img0_path)
         img1 = Image.open(img1_path)
 
-        # img0 = img0.resize(size=(197, 197), resample=PIL.Image.BILINEAR)
-        # img1 = img1.resize(size=(197, 197), resample=PIL.Image.BILINEAR)
-
-        # img0 = np.array(img0, dtype=np.int64)  # TODO
-        # img1 = np.array(img1, dtype=np.int64)  # TODO
-
-        img0 = img0.convert('RGB')
-        img1 = img1.convert('RGB')
-
-        # mean = (131.0912, 103.8827, 91.4953)
-        # mean = (91.4953, 103.8827, 131.0912)
-        # img0 = Image.fromarray(np.uint8(np.array(img0) - mean))
-        # img1 = Image.fromarray(np.uint8(np.array(img1) - mean))
-        # img0 = np.array(img0) - mean
-        # img1 = np.array(img1) - mean
-
         if self.transform is not None:
             img0 = self.transform(img0)
             img1 = self.transform(img1)
