@@ -13,6 +13,7 @@ from OurDataset import *
 from SiameseNetwork import *
 from utils import *
 import json
+import os
 # endregion
 
 # region Run Settings and Definitions
@@ -22,14 +23,14 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 SAVE_MODELS = True
 CREATE_SUBMISSION = True
 # root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-root_folder = Path(os.path.dirname(os.getcwd()))
+root_folder = Path(os.getcwd())
 # endregion
 
 # region Hyper Parameters
 hyper_params = {
     "init_lr": 1e-5,
-    "BATCH_SIZE": 16,
-    "NUMBER_EPOCHS": 10,
+    "BATCH_SIZE": 32,
+    "NUMBER_EPOCHS": 200,
     "weight_decay": 0,
     "decay_lr": True,
     "lr_decay_factor": 0.5,
