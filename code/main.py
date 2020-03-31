@@ -19,11 +19,12 @@ import os
 # region Run Settings and Definitions
 
 # np.random.seed(43)
-NUM_WORKERS = 4
+NUM_WORKERS = 0
 GPU_ID = 1
-device = torch.device('cuda:'+str(GPU_ID) if torch.cuda.is_available() else 'cpu')
-SAVE_MODELS = False
-CREATE_SUBMISSION = False
+# device = torch.device('cuda:'+str(GPU_ID) if torch.cuda.is_available() else 'cpu')
+device = torch.device('cpu')
+SAVE_MODELS = True
+CREATE_SUBMISSION = True
 # for colab:
 # root_folder = Path('/root/')
 root_folder = Path(os.getcwd())
@@ -32,7 +33,7 @@ root_folder = Path(os.getcwd())
 os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
-val_sets = ["F07", "F08", "F09", "F07", "F08", "F09"]
+val_sets = ["F07", "F08", "F09"]
 # val_sets = ["F09"]
 ensemble = []
 
@@ -40,14 +41,13 @@ ensemble = []
 for val_families in val_sets:
     # region Hyper Parameters
     hyper_params = {
-        "init_lr": 1e-5,
-        "BATCH_SIZE": 32,
-        "NUMBER_EPOCHS": 200,
-        "weight_decay": 0,
+        "init_lr": 1e-4,
+        "BATCH_SIZE": 8,
+        "NUMBER_EPOCHS": 100,
+        "weight_decay": 1e-5,
         "decay_lr": True,
-        "lr_decay_factor": 0.5,
-        "lr_patience": 15,  # decay every X epochs without improve
-        "min_lr": 1e-6,
+        "lr_decay_factor": 0.25,
+        "lr_patience": 10,  # decay every X epochs without improve
     }
     print("Hyper parameters:", hyper_params)
     # endregion
@@ -61,8 +61,6 @@ for val_families in val_sets:
             transforms.RandomRotation(degrees=3),
             transforms.RandomHorizontalFlip(),
             # transforms.RandomGrayscale(),
-            # transforms.Resize(256),
-            # transforms.CenterCrop(197),
             transforms.ToTensor(),
             scale_tensor_255,
             rgb2bgr,
@@ -72,8 +70,6 @@ for val_families in val_sets:
         # Validation does not use augmentation
         'valid':
         transforms.Compose([
-            # transforms.Resize(256),
-            # transforms.CenterCrop(197),
             transforms.ToTensor(),
             scale_tensor_255,
             rgb2bgr,
@@ -225,8 +221,8 @@ for val_families in val_sets:
     # region Submission
     if SAVE_MODELS and CREATE_SUBMISSION:
         best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc', measure_rank=1)
-        create_submission\
-            (root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], net=net, device=device)
+        create_submission(
+            root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], net=net, device=device)
         print('Created submission file', best_model_name.replace('.pt', '.csv'))
         submission_file_path = str(root_folder / 'submissions_files' / best_model_name.replace('.pt', '.csv'))
         # submit file
