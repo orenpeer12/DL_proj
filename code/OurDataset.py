@@ -4,7 +4,7 @@ from glob import glob
 import cv2
 from PIL import Image
 import PIL
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, IterableDataset
 import numpy as np
 from torch.utils.data import DataLoader
 

@@ -15,7 +15,7 @@ from OurDataset import *
 # Parameters:
 ##
 random.seed(42)
-ensemble_name = 'en1'
+ensemble_name = 'en2'
 root_folder = Path(os.getcwd())
 submission_folder = root_folder / 'submissions_files' / ensemble_name
 

@@ -23,8 +23,8 @@ NUM_WORKERS = 0
 GPU_ID = 1
 # device = torch.device('cuda:'+str(GPU_ID) if torch.cuda.is_available() else 'cpu')
 device = torch.device('cpu')
-SAVE_MODELS = True
-CREATE_SUBMISSION = True
+SAVE_MODELS = False
+CREATE_SUBMISSION = False
 # for colab:
 # root_folder = Path('/root/')
 root_folder = Path(os.getcwd())
