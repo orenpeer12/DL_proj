@@ -6,7 +6,7 @@ import getpass
 import sys
 import PySimpleGUI as sg
 
-root_folder = Path(os.getcwd())
+root_folder = Path(os.getcwd()).parent
 
 files = os.listdir(root_folder / 'curves')
 

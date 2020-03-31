@@ -9,7 +9,7 @@ from torch.nn.init import kaiming_normal_
 from pre_trained_models.resnet50_ft_pytorch.resnet50_ft_dims_2048 import resnet50_ft, Resnet50_ft
 from pre_trained_models.resnet50_128_pytorch.resnet50_128 import resnet50_128, Resnet50_128
 from pre_trained_models.senet50_256_pytorch.senet50_256 import senet50_256, Senet50_256
-from utils import count_params
+from utils import *
 
 
 class SiameseNetwork(nn.Module):

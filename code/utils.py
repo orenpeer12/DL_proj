@@ -164,9 +164,10 @@ def extract_diff_str(train_history):
     return train_loss_diff, val_loss_diff, train_acc_diff, val_acc_diff
 
 
-def create_submission(root_folder, model_name, transform, net=None):
+def create_submission(root_folder, model_name, transform, device=None, net=None):
     # gpu or cpu:
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # get the sample submission file for loading pairs, and create the new submission file.
     sample_submission_path = root_folder / 'data' / 'faces' / 'sample_submission.csv'
@@ -260,6 +261,11 @@ def scale_tensor_255(tensor, scale=255):
     return tensor.mul(scale)
 
 
+def rgb2bgr(img):
+    img = img[[2, 1, 0], :, :]
+    return img
+
+
 def count_params(net):
     trainable_model_parameters = filter(lambda p: p.requires_grad, net.parameters())
     non_trainable_model_parameters = filter(lambda p: not (p.requires_grad), net.parameters())
@@ -267,13 +273,13 @@ def count_params(net):
     non_trainable_params = sum([np.prod(p.size()) for p in non_trainable_model_parameters])
     print("Num. of trainable parameters: {:,}, num. of frozen parameters: {:,}, total: {:,}".format(
         trainable_params, non_trainable_params, trainable_params + non_trainable_params))
-
-
-def melt_model(net):
-    melt_ratio = 0.
-    for p in net.features.parameters():
-        if random.uniform(0, 1) > melt_ratio:
-            p.require_grad = True
-    net.to(device)
-    optimizer = optim.Adam(net.parameters(), lr=curr_lr, weight_decay=hyper_params["weight_decay"])
-    count_params(net)
+#
+#
+# def melt_model(net):
+#     melt_ratio = 0.
+#     for p in net.features.parameters():
+#         if random.uniform(0, 1) > melt_ratio:
+#             p.require_grad = True
+#     net.to(device)
+#     optimizer = optim.Adam(net.parameters(), lr=curr_lr, weight_decay=hyper_params["weight_decay"])
+#     count_params(net)

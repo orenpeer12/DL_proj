@@ -19,11 +19,11 @@ import os
 # region Run Settings and Definitions
 
 # np.random.seed(43)
-NUM_WORKERS = 8
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-SAVE_MODELS = True
-CREATE_SUBMISSION = True
-
+NUM_WORKERS = 4
+GPU_ID = 1
+device = torch.device('cuda:'+str(GPU_ID) if torch.cuda.is_available() else 'cpu')
+SAVE_MODELS = False
+CREATE_SUBMISSION = False
 # for colab:
 # root_folder = Path('/root/')
 root_folder = Path(os.getcwd())
@@ -42,7 +42,7 @@ for val_families in val_sets:
     hyper_params = {
         "init_lr": 1e-5,
         "BATCH_SIZE": 32,
-        "NUMBER_EPOCHS": 100,
+        "NUMBER_EPOCHS": 200,
         "weight_decay": 0,
         "decay_lr": True,
         "lr_decay_factor": 0.5,
@@ -51,7 +51,8 @@ for val_families in val_sets:
     }
     print("Hyper parameters:", hyper_params)
     # endregion
-
+    mean = [91.4953, 103.8827, 131.0912]
+    std = [1, 1, 1]
     # region Image transformations
     image_transforms = {
         # Train uses data augmentation
@@ -64,8 +65,9 @@ for val_families in val_sets:
             # transforms.CenterCrop(197),
             transforms.ToTensor(),
             scale_tensor_255,
-            transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
-                                 std=[1, 1, 1])
+            rgb2bgr,
+            transforms.Normalize(mean=mean,
+                                 std=std)
         ]),
         # Validation does not use augmentation
         'valid':
@@ -74,8 +76,9 @@ for val_families in val_sets:
             # transforms.CenterCrop(197),
             transforms.ToTensor(),
             scale_tensor_255,
-            transforms.Normalize(mean=[131.0912, 103.8827, 91.4953],
-                                 std=[1, 1, 1])
+            rgb2bgr,
+            transforms.Normalize(mean=mean,
+                                 std=std)
         ]),
     }
     # endregion
@@ -176,7 +179,7 @@ for val_families in val_sets:
             net.eval()
             for data in valloader:
                 img0, img1, labels = data
-                img0, img1, labels = img0.cuda(), img1.cuda(), labels.cuda()
+                img0, img1, labels = img0.to(device), img1.to(device), labels.to(device)
                 outputs = net(img0, img1)
                 # predicted = torch.round(outputs.data)
                 v_loss = criterion(outputs, labels.float().view(outputs.shape))
@@ -222,7 +225,8 @@ for val_families in val_sets:
     # region Submission
     if SAVE_MODELS and CREATE_SUBMISSION:
         best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc', measure_rank=1)
-        create_submission(root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], net=net)
+        create_submission\
+            (root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], net=net, device=device)
         print('Created submission file', best_model_name.replace('.pt', '.csv'))
         submission_file_path = str(root_folder / 'submissions_files' / best_model_name.replace('.pt', '.csv'))
         # submit file
