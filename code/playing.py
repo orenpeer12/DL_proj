@@ -12,7 +12,7 @@ class MyIterableDataset(IterableDataset):
 
 iterable_dataset = MyIterableDataset(data)
 
-loader = DataLoader(iterable_dataset, batch_size=4)
+loader = DataLoader(iterable_dataset, batch_size=8)
 while True:
     for batch in loader:
         print(batch)
