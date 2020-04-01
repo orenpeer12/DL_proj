@@ -45,6 +45,7 @@ class SiameseNetwork(nn.Module):
         # common part ('siamese')
         # self.model.classifier = self.model.classifier[:-1]
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
+
         self.classifier = nn.Sequential(nn.Linear(3 * num_features, 64),
                                         nn.ReLU(),
                                         # nn.Dropout(0.15),

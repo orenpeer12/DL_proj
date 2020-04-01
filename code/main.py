@@ -20,7 +20,7 @@ import os
 
 # np.random.seed(43)
 NUM_WORKERS = 4
-GPU_ID = 0
+GPU_ID = 1
 
 device = torch.device('cuda: ' + str(GPU_ID) if torch.cuda.is_available() else 'cpu')
 SAVE_MODELS = True
@@ -110,7 +110,6 @@ optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_deca
 lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
     optimizer, mode='max', factor=hyper_params['lr_decay_factor'],
     patience=hyper_params['lr_patience'], verbose=1)
-# early_stopping = EarlyStopping(patience=hyper_params["es_patience"], delta=hyper_params["es_delta"], verbose=True)
 
 # endregion
 
@@ -137,6 +136,7 @@ IMPROVED = False     # save model only if it improves val acc.
 curr_lr = hyper_params['init_lr']
 print("Start training model {}! init lr: {}".format(model_name, curr_lr))
 for val_famillies in val_sets:
+    # early_stopping = EarlyStopping(patience=hyper_params["es_patience"], delta=hyper_params["es_delta"], verbose=True)
     train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs = \
         load_data(data_path, val_famillies=val_famillies)
 
@@ -218,7 +218,8 @@ for val_famillies in val_sets:
             train_loss, train_loss_diff, val_loss, val_loss_diff, "(I)" if IMPROVED else ""))
 
         if SAVE_MODELS and IMPROVED:
-            torch.save(net.state_dict(), root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}.pt'.format(model_name, epoch+1, val_loss, val_acc))
+            torch.save(net.state_dict(), root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}_state.pt'.format(model_name, epoch+1, val_loss, val_acc))
+            torch.save(net, root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}_model.pt'.format(model_name, epoch+1, val_loss, val_acc))
         np.save(root_folder / 'curves' / model_name, train_history)
         # early_stopping(val_loss, net)
         #
