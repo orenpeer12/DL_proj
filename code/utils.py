@@ -185,7 +185,8 @@ def create_submission(root_folder, model_name, transform, device=None, net=None)
         model_time = model_name.split('_')[0]
         # net = ResNet(model_time).to(device)
         # net = ResNet(ResidualBlock, [4,4,4]).to(device)
-        net.load_state_dict(torch.load(root_folder / 'models' / model_time / model_name))
+        net = torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_model.pt'))
+        net.load_state_dict(torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_state.pt')))
 
     # pass testset through model:
     net.eval()
@@ -210,7 +211,7 @@ def create_submission(root_folder, model_name, transform, device=None, net=None)
 
 
 def get_best_model(model_folder, measure='val_acc', measure_rank=1):
-    all_models = [m for m in os.listdir(model_folder) if m.endswith('.pt')]
+    all_models = [m for m in os.listdir(model_folder) if m.endswith('_model.pt')]
     measures = []
     for m in all_models:
         if measure == 'val_acc':
@@ -219,7 +220,7 @@ def get_best_model(model_folder, measure='val_acc', measure_rank=1):
             mod_measure = float(m.split('_')[2].split('vl')[-1])
         measures.append(mod_measure)
     best_model_idx = np.argsort(measures)[-measure_rank]
-    return all_models[best_model_idx]
+    return all_models[best_model_idx].replace('_model', '')
 
 
 def update_lr(optimizer, lr):

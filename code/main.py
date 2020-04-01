@@ -113,6 +113,20 @@ lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
 
 # endregion
 
+# THE FOLLOWING COMMENTED CODE IS ONLY FOR SUBMITTING
+# model_name = '01.04.13.56.06'
+# best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc', measure_rank=1)
+# create_submission(
+#     root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], device=device)
+# print('Created submission file', best_model_name.replace('.pt', '.csv'))
+# submission_file_path = str(root_folder / 'submissions_files' / best_model_name.replace('.pt', '.csv'))
+# # submit file
+# os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' + \
+#           submission_file_path + ' -m ' + best_model_name.replace('.pt', '.csv') + '_after_load_fix2')
+# # show submissions
+# os.system('kaggle competitions submissions recognizing-faces-in-the-wild')
+# exit()
+
 # region Save Run Definitions (Model and Hyper Parameters)
 if SAVE_MODELS:
     # save pre-trained model and our classifier arch.
