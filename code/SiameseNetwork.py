@@ -45,7 +45,7 @@ class SiameseNetwork(nn.Module):
         # common part ('siamese')
         # self.model.classifier = self.model.classifier[:-1]
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
-        self.classifier = nn.Sequential(nn.Linear(2 * num_features, 128),
+        self.classifier = nn.Sequential(nn.Linear(3 * num_features, 128),
                                         nn.ReLU(),
                                         nn.Dropout(0.2),
                                         nn.Linear(128, 32),
@@ -110,10 +110,10 @@ class SiameseNetwork(nn.Module):
         f2_ = torch.mul(f2, f2)
         f4 = torch.sub(f1_, f2_)
 
-        # f5 = torch.mul(f1, f2)
+        f5 = torch.mul(f1, f2)
 
-        # feat = torch.cat((f5, f4, f3), dim=1)
-        feat = torch.cat((f4, f3), dim=1)
+        feat = torch.cat((f5, f4, f3), dim=1)
+        # feat = torch.cat((f4, f3), dim=1)
         # feat = feat.view(feat.size()[0], -1)
         # feat = torch.cat((f1, f2), dim=1)
 
