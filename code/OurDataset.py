@@ -129,9 +129,7 @@ class OurSampler(BatchSampler):
         rand_relat = random.sample(self.dataset.relationships, self.batch_size//2)
 
         # get the indices of ppl
-        batch = []
-        for rel in rand_relat:
-            batch.append((self.dataset.ppl.index(rel[0]), self.dataset.ppl.index(rel[1])))
+        batch = [(self.dataset.ppl.index(rel[0]), self.dataset.ppl.index(rel[1])) for rel in rand_relat]
 
         while len(batch) < self.batch_size:
             p1_idx = random.randint(0, len(self.dataset.ppl) - 1)
@@ -159,14 +157,19 @@ def create_datasets(folder_dataset, train_pairs, val_pairs, image_transforms, tr
                           familise_trees=train_family_persons_tree,
                           ppl=train_ppl)
 
-
-    train_batch_sampler = OurSampler(trainset, hyper_params["BATCH_SIZE"])
-    trainloader = DataLoader(trainset,
-                             shuffle=False,
-                             batch_sampler=train_batch_sampler,
-                             num_workers=NUM_WORKERS,
-                             drop_last=False,
-                             batch_size=1)
+    if hyper_params["equal_sampling"]:
+        train_batch_sampler = OurSampler(trainset, hyper_params["BATCH_SIZE"])
+        trainloader = DataLoader(trainset,
+                                 shuffle=False,
+                                 batch_sampler=train_batch_sampler,
+                                 num_workers=NUM_WORKERS,
+                                 drop_last=False,
+                                 batch_size=1)
+    else:
+        trainloader = DataLoader(trainset,
+                                 shuffle=True,
+                                 num_workers=NUM_WORKERS,
+                                 batch_size=hyper_params["BATCH_SIZE"])
 
     valset = OurDataset(imageFolderDataset=folder_dataset,
                         relationships=val_pairs,
@@ -175,7 +178,7 @@ def create_datasets(folder_dataset, train_pairs, val_pairs, image_transforms, tr
                         ppl=val_ppl)
 
     valloader = DataLoader(valset,
-                           shuffle=True,
+                           shuffle=False,
                            num_workers=NUM_WORKERS,
                            batch_size=hyper_params["BATCH_SIZE"])
 

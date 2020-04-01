@@ -40,13 +40,14 @@ ensemble = []
 # For now, ensembles are different in val-sets.
 # region Hyper Parameters
 hyper_params = {
+    "equal_sampling": 1,  # whether to sample equally from each class in each batch
     "init_lr": 1e-5,
     "BATCH_SIZE": 32,
     "NUMBER_EPOCHS": 100,
     "weight_decay": 0,
     "decay_lr": True,
     "lr_decay_factor": 0.1,
-    "lr_patience": 15,  # decay every X epochs without improve
+    "lr_patience": 10,  # decay every X epochs without improve
     "es_patience": 20,
     "es_delta": 0.001
 }
@@ -162,7 +163,8 @@ for val_famillies in val_sets:
                                              train_family_persons_tree, val_family_persons_tree,
                                              train_ppl, val_ppl, hyper_params, NUM_WORKERS)
 
-    steps_per_epoch = 2  #len(train_pairs) // hyper_params["BATCH_SIZE"]
+    steps_per_epoch = np.ceil(len(train_pairs) / hyper_params["BATCH_SIZE"]).__int__() if \
+        hyper_params["equal_sampling"] else 1
     for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
         # initialize epoch meters.
         batch_counter = 0
@@ -243,7 +245,7 @@ for val_famillies in val_sets:
             torch.save(net.state_dict(), root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}_state.pt'.format(model_name, epoch+1, val_loss, val_acc))
             torch.save(net, root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}_model.pt'.format(model_name, epoch+1, val_loss, val_acc))
         np.save(root_folder / 'curves' / model_name, train_history)
-        early_stopping(val_loss, net)
+        early_stopping(-val_acc, net)
 
         if early_stopping.early_stop:
             print("Early stopping! onto next val-family!")
@@ -259,11 +261,11 @@ for val_famillies in val_sets:
 if SAVE_MODELS and CREATE_SUBMISSION:
     best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc', measure_rank=1)
     create_submission(
-        root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], net=net, device=device)
+        root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], device=device)
     print('Created submission file', best_model_name.replace('.pt', '.csv'))
     submission_file_path = str(root_folder / 'submissions_files' / best_model_name.replace('.pt', '.csv'))
     # submit file
-    os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' + \
+    os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' +
               submission_file_path + ' -m ' + best_model_name.replace('.pt', '.csv'))
     # show submissions
     os.system('kaggle competitions submissions recognizing-faces-in-the-wild')

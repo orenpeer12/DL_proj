@@ -58,7 +58,7 @@ def inspect_images_attributes(data_path):
     print("Possible shapes are:\n {}".format(shapes))
 
 
-def load_data(data_path, val_famillies="F09"):
+def load_data(data_path, val_famillies):
     all_images = glob(str(data_path / 'train/*/*/*.jpg'))
     train_images = [x for x in all_images if val_famillies not in x]
     num_train_images = len(train_images)

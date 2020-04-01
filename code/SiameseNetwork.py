@@ -46,12 +46,15 @@ class SiameseNetwork(nn.Module):
         # self.model.classifier = self.model.classifier[:-1]
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
 
-        self.classifier = nn.Sequential(nn.Linear(3 * num_features, 64),
+        self.classifier = nn.Sequential(nn.BatchNorm1d(num_features=3*num_features),
+                                        nn.Linear(3 * num_features, 64),
                                         nn.ReLU(),
                                         nn.Dropout(0.1),
+                                        nn.BatchNorm1d(num_features=64),
                                         nn.Linear(64, 32),
                                         nn.ReLU(),
                                         nn.Dropout(0.1),
+                                        nn.BatchNorm1d(num_features=32),
                                         nn.Linear(32, 1),
                                         nn.Sigmoid()
                                         )
