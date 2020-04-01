@@ -71,6 +71,8 @@ def load_data(data_path, val_famillies="F09"):
 
     # train_person_to_images_map = defaultdict(list)
     ppl = [x.split(delim)[-3] + delim + x.split(delim)[-2] for x in all_images]
+    train_ppl = list(np.unique([x.split(delim)[-3] + delim + x.split(delim)[-2] for x in train_images]))
+    val_ppl = list(np.unique([x.split(delim)[-3] + delim + x.split(delim)[-2] for x in val_images]))
 
     # for x in train_images:
     #     train_person_to_images_map[x.split(delim)[-3] + delim + x.split(delim)[-2]].append(x)
@@ -115,7 +117,7 @@ def load_data(data_path, val_famillies="F09"):
     print("Dataset size: ", num_val_images + num_train_images)
     print("#########################################")
 
-    return train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs
+    return train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs, train_ppl, val_ppl
 
     # train_lables = pd.read_csv(data_path / 'train.csv')
     # test_lables = pd.read_csv(data_path / 'test.csv')
