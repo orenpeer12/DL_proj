@@ -22,8 +22,8 @@ import os
 NUM_WORKERS = 0
 GPU_ID = 1
 device = torch.device('cuda: ' + str(GPU_ID) if torch.cuda.is_available() else 'cpu')
-SAVE_MODELS = False
-CREATE_SUBMISSION = False
+SAVE_MODELS = True
+CREATE_SUBMISSION = True
 # for colab:
 # root_folder = Path('/root/')
 root_folder = Path(os.getcwd())
@@ -33,16 +33,17 @@ os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
 val_sets = ["F07", "F08", "F09", "F07", "F08", "F09"]
-val_sets = ["F09"]
+# val_sets = ["F09"]
 ensemble = []
 
 # For now, ensembles are different in val-sets.
 for val_families in val_sets:
     # region Hyper Parameters
     hyper_params = {
-        "init_lr": 1e-4,
-        "BATCH_SIZE": 8,
-        "NUMBER_EPOCHS": 100,
+        "equal_sampling": 1,
+        "init_lr": 1e-5,
+        "BATCH_SIZE": 32,
+        "NUMBER_EPOCHS": 1,
         "weight_decay": 1e-5,
         "decay_lr": True,
         "lr_decay_factor": 0.25,
@@ -197,8 +198,10 @@ for val_families in val_sets:
 
         # melt_model(net)
 
-        train_history["train_loss"].append(train_loss); train_history["val_loss"].append(val_loss)
-        train_history["train_acc"].append(train_acc); train_history["val_acc"].append(val_acc)
+        train_history["train_loss"].append(train_loss)
+        train_history["val_loss"].append(val_loss)
+        train_history["train_acc"].append(train_acc)
+        train_history["val_acc"].append(val_acc)
 
         train_loss_diff, val_loss_diff, train_acc_diff, val_acc_diff = extract_diff_str(train_history)
 
