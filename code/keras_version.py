@@ -128,6 +128,10 @@ from tqdm import tqdm
 
 submission = pd.read_csv('../data/faces/sample_submission.csv')
 
+# for loading only
+# model = baseline_model()
+# model.load_weights('vgg_face.h5')
+
 predictions = []
 
 for batch in tqdm(chunker(submission.img_pair.values)):

@@ -189,12 +189,14 @@ def create_submission(root_folder, model_name, transform, device=None, net=None)
 
     # pass testset through model:
     net.eval()
+    net.to(device)
     for i, data in enumerate(test_loader, 0):
         row, img0, img1 = data
-        row, img0, img1 = row.cuda(), img0.cuda(), img1.cuda()
+        row, img0, img1 = row.to(device), img0.to(device), img1.to(device)
 
         output = net(img0, img1)
-        predicted = torch.round(output.data).long().view(-1)
+        # predicted = torch.round(output.data).long().view(-1)
+        predicted = output.data.view(-1)
         # sm = output.softmax(dim=1)
         # _, pred = torch.round(sm, 1)
 
