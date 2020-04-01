@@ -20,7 +20,7 @@ import os
 
 # np.random.seed(43)
 NUM_WORKERS = 4
-GPU_ID = 1
+GPU_ID = 0
 
 device = torch.device('cuda: ' + str(GPU_ID) if torch.cuda.is_available() else 'cpu')
 SAVE_MODELS = True
@@ -42,10 +42,10 @@ ensemble = []
 hyper_params = {
     "init_lr": 1e-5,
     "BATCH_SIZE": 32,
-    "NUMBER_EPOCHS": 25,
+    "NUMBER_EPOCHS": 100,
     "weight_decay": 0,
     "decay_lr": True,
-    "lr_decay_factor": 0.5,
+    "lr_decay_factor": 0.1,
     "lr_patience": 15,  # decay every X epochs without improve
     "es_patience": 20,
     "es_delta": 0.001
@@ -114,7 +114,7 @@ lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
 # endregion
 
 # THE FOLLOWING COMMENTED CODE IS ONLY FOR SUBMITTING
-# model_name = '01.04.13.56.06'
+# model_name = '01.04.14.20.16'
 # best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc', measure_rank=1)
 # create_submission(
 #     root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], device=device)
@@ -122,7 +122,7 @@ lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
 # submission_file_path = str(root_folder / 'submissions_files' / best_model_name.replace('.pt', '.csv'))
 # # submit file
 # os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' + \
-#           submission_file_path + ' -m ' + best_model_name.replace('.pt', '.csv') + '_after_load_fix2')
+#           submission_file_path + ' -m ' + best_model_name.replace('.pt', '.csv') + '_after_load')
 # # show submissions
 # os.system('kaggle competitions submissions recognizing-faces-in-the-wild')
 # exit()
@@ -150,7 +150,7 @@ IMPROVED = False     # save model only if it improves val acc.
 curr_lr = hyper_params['init_lr']
 print("Start training model {}! init lr: {}".format(model_name, curr_lr))
 for val_famillies in val_sets:
-    # early_stopping = EarlyStopping(patience=hyper_params["es_patience"], delta=hyper_params["es_delta"], verbose=True)
+    early_stopping = EarlyStopping(patience=hyper_params["es_patience"], delta=hyper_params["es_delta"], verbose=True)
     train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs = \
         load_data(data_path, val_famillies=val_famillies)
 
@@ -235,11 +235,11 @@ for val_famillies in val_sets:
             torch.save(net.state_dict(), root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}_state.pt'.format(model_name, epoch+1, val_loss, val_acc))
             torch.save(net, root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}_model.pt'.format(model_name, epoch+1, val_loss, val_acc))
         np.save(root_folder / 'curves' / model_name, train_history)
-        # early_stopping(val_loss, net)
-        #
-        # if early_stopping.early_stop:
-        #     print("Early stopping! onto next val-family!")
-        #     break
+        early_stopping(val_loss, net)
+
+        if early_stopping.early_stop:
+            print("Early stopping! onto next val-family!")
+            break
 # endregion
 
 # # Save ensemble to json...

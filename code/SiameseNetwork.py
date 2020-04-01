@@ -48,10 +48,10 @@ class SiameseNetwork(nn.Module):
 
         self.classifier = nn.Sequential(nn.Linear(3 * num_features, 64),
                                         nn.ReLU(),
-                                        # nn.Dropout(0.15),
+                                        nn.Dropout(0.1),
                                         nn.Linear(64, 32),
                                         nn.ReLU(),
-                                        # nn.Dropout(0.15),
+                                        nn.Dropout(0.1),
                                         nn.Linear(32, 1),
                                         nn.Sigmoid()
                                         )
