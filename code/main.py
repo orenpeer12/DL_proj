@@ -23,7 +23,7 @@ GPU_ID = 0 if 'nir' in os.getcwd() else 1
 # GPU_ID = 0
 
 device = torch.device('cuda: ' + str(GPU_ID) if (torch.cuda.is_available() and not sys.platform.__contains__('win')) else 'cpu')
-SAVE_MODELS = False
+SAVE_MODELS = True
 CREATE_SUBMISSION = True
 # for colab:
 # root_folder = Path('/root/')
@@ -33,7 +33,7 @@ root_folder = Path(os.getcwd())
 os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
-# val_sets = ["F06", "F07", "F08", "F09"]
+# val_sets = ["F07", "F08", "F09"]
 val_sets = ["F09"]
 dataset_version = 'data_mod'
 # dataset_version = 'data'
@@ -42,6 +42,7 @@ dataset_version = 'data_mod'
 hyper_params = {
     "equal_sampling": 1,  # whether to sample equally from each class in each batch
     "init_lr": 1e-5,
+    "min_lr": 5e-8,
     "BATCH_SIZE": 32,
     "NUMBER_EPOCHS": 100,
     "weight_decay": 1e-5,
@@ -62,7 +63,7 @@ image_transforms = {
     transforms.Compose([
         transforms.RandomRotation(degrees=3),
         transforms.RandomHorizontalFlip(),
-        # transforms.RandomGrayscale(),
+        # transforms.RandomGrayscale(p=1),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
@@ -73,6 +74,7 @@ image_transforms = {
     'valid':
     transforms.Compose([
         transforms.ToTensor(),
+        # transforms.RandomGrayscale(p=1),
         scale_tensor_255,
         rgb2bgr,
         transforms.Normalize(mean=mean,
@@ -109,7 +111,7 @@ criterion = nn.BCELoss().to(device)
 optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
 lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
     optimizer, mode='max', factor=hyper_params['lr_decay_factor'],
-    patience=hyper_params['lr_patience'], verbose=1)
+    patience=hyper_params['lr_patience'], min_lr=hyper_params["min_lr"], verbose=1)
 
 # endregion
 
@@ -153,10 +155,10 @@ if SAVE_MODELS:
         json.dump(hyper_params, fp)
 # endregion
 
-for val_famillies in val_sets:
+for val_families in val_sets:
     early_stopping = EarlyStopping(patience=hyper_params["es_patience"], delta=hyper_params["es_delta"], verbose=True)
     train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs, train_ppl, val_ppl = \
-        load_data(data_path, val_famillies=val_famillies)
+        load_data(data_path, val_families=val_families)
 
     trainloader, valloader = create_datasets(folder_dataset, train_pairs, val_pairs, image_transforms,
                                              train_family_persons_tree, val_family_persons_tree,
@@ -244,6 +246,7 @@ for val_famillies in val_sets:
             torch.save(net.state_dict(), root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}_state.pt'.format(model_name, epoch+1, val_loss, val_acc))
             torch.save(net  , root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}_model.pt'.format(model_name, epoch+1, val_loss, val_acc))
         np.save(root_folder / 'curves' / model_name, train_history)
+        # early_stopping(val_loss, net)
         early_stopping(-val_acc, net)
 
         if early_stopping.early_stop:

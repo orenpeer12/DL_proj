@@ -58,11 +58,11 @@ def inspect_images_attributes(data_path):
     print("Possible shapes are:\n {}".format(shapes))
 
 
-def load_data(data_path, val_famillies):
+def load_data(data_path, val_families):
     all_images = glob(str(data_path / 'train/*/*/*.jpg'))
-    train_images = [x for x in all_images if val_famillies not in x]
+    train_images = [x for x in all_images if val_families not in x]
     num_train_images = len(train_images)
-    val_images = [x for x in all_images if val_famillies in x]
+    val_images = [x for x in all_images if val_families in x]
     num_val_images = len(val_images)
     train_family_persons_tree = {}
     val_family_persons_tree = {}
@@ -106,10 +106,10 @@ def load_data(data_path, val_famillies):
     all_relationships = list(zip(all_relationships.p1.values,
                              all_relationships.p2.values))
     all_relationships = [x for x in all_relationships if x[0] in ppl and x[1] in ppl]  # filter unused relationships
-    train_pairs = [x for x in all_relationships if val_famillies not in x[0]]
-    val_pairs = [x for x in all_relationships if val_famillies in x[0]]
+    train_pairs = [x for x in all_relationships if val_families not in x[0]]
+    val_pairs = [x for x in all_relationships if val_families in x[0]]
     # make sure no need to check x[1]
-    print("Validation families: ", val_famillies)
+    print("Validation families: ", val_families)
     print("Total train pairs:", len(train_pairs))
     print("Total val pairs:", len(val_pairs))
     print("Total train images:", num_train_images)
@@ -185,6 +185,7 @@ def create_submission(root_folder, model_name, transform, device=None, net=None)
     # if needed, load model:
     if net is None:
         model_time = model_name.split('_')[0]
+        print('loading best model: '+ model_time)
         net = torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_model.pt'))
         net.load_state_dict(torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_state.pt')))
 
