@@ -3,7 +3,6 @@ import numpy as np
 import time
 from pathlib import Path
 import getpass
-
 import torch
 import torch.nn as nn
 from torch import optim
@@ -21,9 +20,10 @@ import os
 # np.random.seed(43)
 NUM_WORKERS = 4
 GPU_ID = 0 if 'nir' in os.getcwd() else 1
+# GPU_ID = 0
 
-device = torch.device('cuda: ' + str(GPU_ID) if torch.cuda.is_available() else 'cpu')
-SAVE_MODELS = True
+device = torch.device('cuda: ' + str(GPU_ID) if (torch.cuda.is_available() and not sys.platform.__contains__('win')) else 'cpu')
+SAVE_MODELS = False
 CREATE_SUBMISSION = True
 # for colab:
 # root_folder = Path('/root/')
@@ -33,17 +33,18 @@ root_folder = Path(os.getcwd())
 os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
-val_sets = ["F06", "F07", "F08", "F09"]
-# val_sets = ["F09"]
-
+# val_sets = ["F06", "F07", "F08", "F09"]
+val_sets = ["F09"]
+dataset_version = 'data_mod'
+# dataset_version = 'data'
 # For now, ensembles are different in val-sets.
 # region Hyper Parameters
 hyper_params = {
     "equal_sampling": 1,  # whether to sample equally from each class in each batch
     "init_lr": 1e-5,
     "BATCH_SIZE": 32,
-    "NUMBER_EPOCHS": 30,
-    "weight_decay": 1e-4,
+    "NUMBER_EPOCHS": 100,
+    "weight_decay": 1e-5,
     "decay_lr": True,
     "lr_decay_factor": 0.1,
     "lr_patience": 10,  # decay every X epochs without improve
@@ -84,7 +85,7 @@ image_transforms = {
 # val_families = "F09"  # all families starts with this str will be sent to validation set.
 
 # path to the folder contains all data folders and csv files
-data_path = root_folder / 'data' / 'faces'
+data_path = root_folder / dataset_version / 'faces'
 folder_dataset = dset.ImageFolder(root=data_path / 'train')
 
 # Visualize data in dataloader.
@@ -113,7 +114,7 @@ lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
 # endregion
 
 # THE FOLLOWING COMMENTED CODE IS ONLY FOR SUBMITTING
-# model_name = '01.04.14.20.16'
+# model_name = '02.04.09.42.16'
 # best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc', measure_rank=1)
 # create_submission(
 #     root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], device=device)
@@ -143,17 +144,16 @@ if SAVE_MODELS:
     hyper_params["transforms"] = transforms.__str__()
     os.mkdir(root_folder / 'models' / model_name)
 # endregion
+# region Save Run Definitions (Model and Hyper Parameters)
+if SAVE_MODELS:
+    # save pre-trained model and our classifier arch.
+    hyper_params["val_families"] = val_sets
+    # save hyper parameters to json:
+    with open(str(root_folder / 'models' / model_name / "Hyper_Params.json"), 'w') as fp:
+        json.dump(hyper_params, fp)
+# endregion
 
 for val_famillies in val_sets:
-    # region Save Run Definitions (Model and Hyper Parameters)
-    if SAVE_MODELS:
-        # save pre-trained model and our classifier arch.
-        hyper_params["val_families"] = val_famillies
-        # save hyper parameters to json:
-        with open(str(root_folder / 'models' / model_name / "Hyper_Params.json"), 'w') as fp:
-            json.dump(hyper_params, fp)
-    # endregion
-
     early_stopping = EarlyStopping(patience=hyper_params["es_patience"], delta=hyper_params["es_delta"], verbose=True)
     train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs, train_ppl, val_ppl = \
         load_data(data_path, val_famillies=val_famillies)
