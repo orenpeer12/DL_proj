@@ -17,10 +17,10 @@ import torch
 # Parameters:
 ##
 random.seed(42)
-NUM_WORKERS = 4
-GPU_ID = 0
-# device = torch.device('cuda: ' + str(GPU_ID) if torch.cuda.is_available() else 'cpu')
-device = torch.device('cpu')
+NUM_WORKERS = 0
+GPU_ID = 0 if 'nir' in os.getcwd() else 1
+device = torch.device('cuda: ' + str(GPU_ID) if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cpu')
 
 ensemble_name = 'en3'
 root_folder = Path(os.getcwd())
@@ -60,24 +60,26 @@ if BinaryEnsemble:
 else:
     mean = [91.4953, 103.8827, 131.0912]
     std = [1, 1, 1]
-    transform = transforms.Compose([
+    test_transform = transforms.Compose([
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
         transforms.Normalize(mean=mean,
                              std=std)
-    ]),
+    ])
     # load test-set
-    testset = TestDataset(df=df_submit, root_dir=root_folder / 'data' / 'faces' / 'test', transform=transform)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=8)
+    testset = TestDataset(df=df_submit, root_dir=root_folder / 'data' / 'faces' / 'test', transform=test_transform)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=16)
     # load models-paths and loacate the best validation-accuracy-models
     models_names = [m.split('_')[0] for m in submissions]
     best_models_names = [get_best_model(root_folder / 'models' / m) for m in models_names]
     outputs = []
     for mn, bmn in zip(models_names, best_models_names):
+        print("evaluating " + mn)
+        cur_model_evaluation = []
         # load model
-        net = torch.load(root_folder / 'models' / mn / bmn + '')
-        net.load_state_dict(torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_state.pt')))
+        net = torch.load(root_folder / 'models' / mn / bmn.replace('.pt', '_model.pt'))
+        net.load_state_dict(torch.load(root_folder / 'models' / mn / bmn.replace('.pt', '_state.pt')))
 
         # pass testset through model:
         net.eval()
@@ -89,10 +91,20 @@ else:
             output = net(img0, img1)
             # predicted = torch.round(output.data).long().view(-1)
             predicted = output.data.view(-1)
+            cur_model_evaluation.append(predicted.data.cpu().numpy())
+        outputs.append(np.concatenate(cur_model_evaluation))
 
+    # write submission
+    res = np.vstack(outputs)
+    res = np.mean(res, axis=0)
 
+    df_submit.is_related = res
 
-# os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' + \
-#                   str(dst_submission_path) + ' -m ' + ensemble_name + '.csv')
-# # show submissions
-# os.system('kaggle competitions submissions recognizing-faces-in-the-wild')
+    # write submission
+    res = df_submit.to_csv(dst_submission_path, index=False)
+    # submit file
+    os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
+    os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' +
+              str(dst_submission_path) + ' -m ' + ensemble_name + '.csv')
+    # show submissions
+    os.system('kaggle competitions submissions recognizing-faces-in-the-wild')

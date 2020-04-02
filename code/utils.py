@@ -183,8 +183,6 @@ def create_submission(root_folder, model_name, transform, device=None, net=None)
     # if needed, load model:
     if net is None:
         model_time = model_name.split('_')[0]
-        # net = ResNet(model_time).to(device)
-        # net = ResNet(ResidualBlock, [4,4,4]).to(device)
         net = torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_model.pt'))
         net.load_state_dict(torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_state.pt')))
 
