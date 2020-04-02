@@ -39,13 +39,14 @@ val_sets = ["F06", "F07", "F08", "F09"]
 # For now, ensembles are different in val-sets.
 # region Hyper Parameters
 hyper_params = {
+    "equal_sampling": 1,  # whether to sample equally from each class in each batch
     "init_lr": 1e-5,
     "BATCH_SIZE": 32,
     "NUMBER_EPOCHS": 30,
     "weight_decay": 1e-4,
     "decay_lr": True,
-    "lr_decay_factor": 0.5,
-    "lr_patience": 15,  # decay every X epochs without improve
+    "lr_decay_factor": 0.1,
+    "lr_patience": 10,  # decay every X epochs without improve
     "es_patience": 20,
     "es_delta": 0.001
 }
@@ -86,7 +87,6 @@ image_transforms = {
 data_path = root_folder / 'data' / 'faces'
 folder_dataset = dset.ImageFolder(root=data_path / 'train')
 
-
 # Visualize data in dataloader.
 # trainset.__getitem__(1)
 # dataiter = iter(trainloader)
@@ -113,7 +113,7 @@ lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
 # endregion
 
 # THE FOLLOWING COMMENTED CODE IS ONLY FOR SUBMITTING
-# model_name = '01.04.21.31.42'
+# model_name = '01.04.14.20.16'
 # best_model_name = get_best_model(model_folder=root_folder / 'models' / model_name, measure='val_acc', measure_rank=1)
 # create_submission(
 #     root_folder=root_folder, model_name=best_model_name, transform=image_transforms['valid'], device=device)
@@ -121,10 +121,17 @@ lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
 # submission_file_path = str(root_folder / 'submissions_files' / best_model_name.replace('.pt', '.csv'))
 # # submit file
 # os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' + \
-#           submission_file_path + ' -m ' + best_model_name.replace('.pt', '.csv') + '_after_load_fix2')
+#           submission_file_path + ' -m ' + best_model_name.replace('.pt', '.csv') + '_after_load')
 # # show submissions
 # os.system('kaggle competitions submissions recognizing-faces-in-the-wild')
 # exit()
+
+# region Training
+train_history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
+best_val_acc = 0
+IMPROVED = False     # save model only if it improves val acc.
+curr_lr = hyper_params['init_lr']
+print("Start training model {}! init lr: {}".format(model_name, curr_lr))
 
 # region Save Run Definitions (Model and Hyper Parameters)
 if SAVE_MODELS:
@@ -134,28 +141,29 @@ if SAVE_MODELS:
     hyper_params["criterion"] = criterion.__str__()
     hyper_params["optimizer"] = optimizer.__str__()
     hyper_params["transforms"] = transforms.__str__()
-    hyper_params["val_families"] = val_sets
-
     os.mkdir(root_folder / 'models' / model_name)
-    # save hyper parameters to json:
-    with open(str(root_folder / 'models' / model_name / "Hyper_Params.json"), 'w') as fp:
-        json.dump(hyper_params, fp)
 # endregion
 
-# region Training
-train_history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
-best_val_acc = 0
-IMPROVED = False     # save model only if it improves val acc.
-curr_lr = hyper_params['init_lr']
-print("Start training model {}! init lr: {}".format(model_name, curr_lr))
 for val_famillies in val_sets:
+    # region Save Run Definitions (Model and Hyper Parameters)
+    if SAVE_MODELS:
+        # save pre-trained model and our classifier arch.
+        hyper_params["val_families"] = val_famillies
+        # save hyper parameters to json:
+        with open(str(root_folder / 'models' / model_name / "Hyper_Params.json"), 'w') as fp:
+            json.dump(hyper_params, fp)
+    # endregion
+
     early_stopping = EarlyStopping(patience=hyper_params["es_patience"], delta=hyper_params["es_delta"], verbose=True)
-    train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs = \
+    train_family_persons_tree, train_pairs, val_family_persons_tree, val_pairs, train_ppl, val_ppl = \
         load_data(data_path, val_famillies=val_famillies)
 
     trainloader, valloader = create_datasets(folder_dataset, train_pairs, val_pairs, image_transforms,
                                              train_family_persons_tree, val_family_persons_tree,
-                                             hyper_params, NUM_WORKERS)
+                                             train_ppl, val_ppl, hyper_params, NUM_WORKERS)
+
+    steps_per_epoch = np.ceil(len(train_pairs) / hyper_params["BATCH_SIZE"]).__int__() if \
+        hyper_params["equal_sampling"] else 1
     for epoch in range(0, hyper_params["NUMBER_EPOCHS"]):
         # initialize epoch meters.
         batch_counter = 0
@@ -166,22 +174,24 @@ for val_famillies in val_sets:
         val_acc = 0
 
         net.train()  # move the net to train mode
-        for i, data in enumerate(trainloader):
-            IMPROVED = False
-            img0, img1, labels = data  # img=tensor[batch_size,channels,width,length], label=tensor[batch_size,label]
-            img0, img1, labels = img0.to(device), img1.to(device), labels.to(device)  # move to GPU
-            optimizer.zero_grad()  # clear the calculated grad in previous batch
-            outputs = net(img0, img1)
-            loss = criterion(outputs, labels.float().view(outputs.shape))
-            # add batch loss and acc to epoch-loss\acc
-            # loss:
-            train_loss += loss.item()
-            # acc:
-            predicted = torch.round(outputs.data).long().view(-1)   # FOR BCE
-            train_acc += (predicted == labels).sum().item()
-            loss.backward()
-            optimizer.step()
-            batch_counter += 1
+        for j in range(steps_per_epoch):
+            for i, data in enumerate(trainloader):
+                IMPROVED = False
+                img0, img1, labels = data
+                # print(labels.float().mean())
+                img0, img1, labels = img0.to(device), img1.to(device), labels.to(device)  # move to GPU
+                optimizer.zero_grad()  # clear the calculated grad in previous batch
+                outputs = net(img0, img1)
+                loss = criterion(outputs, labels.float().view(outputs.shape))
+                # add batch loss and acc to epoch-loss\acc
+                # loss:
+                train_loss += loss.item()
+                # acc:
+                predicted = torch.round(outputs.data).long().view(-1)   # FOR BCE
+                train_acc += (predicted == labels).sum().item()
+                loss.backward()
+                optimizer.step()
+                batch_counter += 1
 
         epoch_time = time.time() - epoch_start_time
         train_acc /= (0.01*trainloader.dataset.__len__())
@@ -234,7 +244,7 @@ for val_famillies in val_sets:
             torch.save(net.state_dict(), root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}_state.pt'.format(model_name, epoch+1, val_loss, val_acc))
             torch.save(net  , root_folder / 'models' / model_name / '{}_e{}_vl{:.4f}_va{:.2f}_model.pt'.format(model_name, epoch+1, val_loss, val_acc))
         np.save(root_folder / 'curves' / model_name, train_history)
-        early_stopping(val_loss, net)
+        early_stopping(-val_acc, net)
 
         if early_stopping.early_stop:
             print("Early stopping! onto next val-family!")
@@ -254,7 +264,7 @@ if SAVE_MODELS and CREATE_SUBMISSION:
     print('Created submission file', best_model_name.replace('.pt', '.csv'))
     submission_file_path = str(root_folder / 'submissions_files' / best_model_name.replace('.pt', '.csv'))
     # submit file
-    os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' + \
+    os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' +
               submission_file_path + ' -m ' + best_model_name.replace('.pt', '.csv'))
     # show submissions
     os.system('kaggle competitions submissions recognizing-faces-in-the-wild')
