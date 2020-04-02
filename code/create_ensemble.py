@@ -22,7 +22,7 @@ GPU_ID = 0
 # device = torch.device('cuda: ' + str(GPU_ID) if torch.cuda.is_available() else 'cpu')
 device = torch.device('cpu')
 
-ensemble_name = 'en2'
+ensemble_name = 'en3'
 root_folder = Path(os.getcwd())
 submission_folder = root_folder / 'submissions_files' / ensemble_name
 BinaryEnsemble = False
@@ -58,16 +58,37 @@ if BinaryEnsemble:
     res = df_submit.to_csv(dst_submission_path, index=False)
 
 else:
-    models_paths = [root_folder / 'models' / m.split('_')[0] / m.replace('.csv', '.pt') for m in submissions]
-    hyper_parameters_paths = [root_folder / 'models' / m.split('_')[0] / 'Hyper_Params.json' for m in submissions]
-    hyper_parameters = []
-    for hp in hyper_parameters_paths:
-        with open(hp) as json_file:
-            hyper_parameters.append(json.load(json_file))
-    for model_path, hp in zip(models_paths, hyper_parameters):
-        classifier_str = hp['classifier']
-        feature_extractor = hp['feature_extractor']
+    mean = [91.4953, 103.8827, 131.0912]
+    std = [1, 1, 1]
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        scale_tensor_255,
+        rgb2bgr,
+        transforms.Normalize(mean=mean,
+                             std=std)
+    ]),
+    # load test-set
+    testset = TestDataset(df=df_submit, root_dir=root_folder / 'data' / 'faces' / 'test', transform=transform)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=8)
+    # load models-paths and loacate the best validation-accuracy-models
+    models_names = [m.split('_')[0] for m in submissions]
+    best_models_names = [get_best_model(root_folder / 'models' / m) for m in models_names]
+    outputs = []
+    for mn, bmn in zip(models_names, best_models_names):
+        # load model
+        net = torch.load(root_folder / 'models' / mn / bmn + '')
+        net.load_state_dict(torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_state.pt')))
 
+        # pass testset through model:
+        net.eval()
+        net.to(device)
+        for i, data in enumerate(test_loader, 0):
+            row, img0, img1 = data
+            row, img0, img1 = row.to(device), img0.to(device), img1.to(device)
+
+            output = net(img0, img1)
+            # predicted = torch.round(output.data).long().view(-1)
+            predicted = output.data.view(-1)
 
 
 
