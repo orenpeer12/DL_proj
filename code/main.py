@@ -18,7 +18,7 @@ import os
 # region Run Settings and Definitions
 
 # np.random.seed(43)
-NUM_WORKERS = 4
+NUM_WORKERS = 0
 GPU_ID = 0 if 'nir' in os.getcwd() else 1
 # GPU_ID = 0
 
@@ -35,8 +35,8 @@ os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 
 # val_sets = ["F07", "F08", "F09"]
 val_sets = ["F09"]
-dataset_version = 'data_mod'
-# dataset_version = 'data'
+# dataset_version = 'data_mod'
+dataset_version = 'data'
 # For now, ensembles are different in val-sets.
 # region Hyper Parameters
 hyper_params = {
@@ -48,9 +48,10 @@ hyper_params = {
     "weight_decay": 1e-5,
     "decay_lr": True,
     "lr_decay_factor": 0.1,
-    "lr_patience": 10,  # decay every X epochs without improve
+    "lr_patience": 15,  # decay every X epochs without improve
     "es_patience": 20,
-    "es_delta": 0.001
+    "es_delta": 0.001,
+    "dataset_version": dataset_version
 }
 print("Hyper parameters:", hyper_params)
 # endregion
@@ -63,7 +64,7 @@ image_transforms = {
     transforms.Compose([
         transforms.RandomRotation(degrees=3),
         transforms.RandomHorizontalFlip(),
-        # transforms.RandomGrayscale(p=1),
+        transforms.RandomGrayscale(p=1),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
@@ -73,8 +74,8 @@ image_transforms = {
     # Validation does not use augmentation
     'valid':
     transforms.Compose([
+        transforms.RandomGrayscale(p=1),
         transforms.ToTensor(),
-        # transforms.RandomGrayscale(p=1),
         scale_tensor_255,
         rgb2bgr,
         transforms.Normalize(mean=mean,
@@ -143,7 +144,7 @@ if SAVE_MODELS:
     hyper_params["classifier"] = net.classifier.__str__()
     hyper_params["criterion"] = criterion.__str__()
     hyper_params["optimizer"] = optimizer.__str__()
-    hyper_params["transforms"] = transforms.__str__()
+    hyper_params["transforms"] = image_transforms.__str__()
     os.mkdir(root_folder / 'models' / model_name)
 # endregion
 # region Save Run Definitions (Model and Hyper Parameters)

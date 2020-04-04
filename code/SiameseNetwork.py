@@ -50,11 +50,11 @@ class SiameseNetwork(nn.Module):
             nn.BatchNorm1d(num_features=3*num_features),
             nn.Linear(3*num_features, 64),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(0.1),
             nn.BatchNorm1d(num_features=64),
             nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(0.1),
             nn.BatchNorm1d(num_features=32),
             nn.Linear(32, 1),
             nn.Sigmoid()
