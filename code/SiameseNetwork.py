@@ -50,11 +50,10 @@ class SiameseNetwork(nn.Module):
             nn.BatchNorm1d(num_features=3*num_features),
             nn.Linear(3*num_features, 64),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(0.1),
             nn.BatchNorm1d(num_features=64),
             nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Dropout(0.2),
             nn.BatchNorm1d(num_features=32),
             nn.Linear(32, 1),
             nn.Sigmoid()
@@ -79,7 +78,7 @@ class SiameseNetwork(nn.Module):
         #         print(i, name, ": Not frozen!")
 
         for param in self.features.parameters():
-            param.requires_grad = True
+            param.requires_grad = False
         # for param in self.features.classifier.parameters():
         #     param.requires_grad = False
 
