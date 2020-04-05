@@ -43,6 +43,7 @@ hyper_params = {
     "equal_sampling": 1,  # whether to sample equally from each class in each batch
     "init_lr": 1e-5,
     "min_lr": 5e-8,
+    "dropout_rate": 0.2,
     "BATCH_SIZE": 32,
     "NUMBER_EPOCHS": 100,
     "weight_decay": 1e-5,
@@ -103,7 +104,7 @@ folder_dataset = dset.ImageFolder(root=data_path / 'train')
 # region Define Model
 model_name = time.strftime('%d.%m.%H.%M.%S')
 # ensemble.append({"model name": model_name, "val family:": val_families})
-net = SiameseNetwork(model_name)
+net = SiameseNetwork(model_name, hyper_params)
 net.to(device)
 # endregion
 

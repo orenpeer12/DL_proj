@@ -12,11 +12,21 @@ from pre_trained_models.senet50_256_pytorch.senet50_256 import senet50_256, Sene
 from utils import *
 
 
+class Flatten(nn.Module):
+    def forward(self, input):
+        return input.view(input.size(0), -1)
+
+
 class SiameseNetwork(nn.Module):
-    def __init__(self, model_name):
+    def __init__(self, model_name, hyper_params=None):
         super(SiameseNetwork, self).__init__()
 
         self.name = model_name
+
+        if hyper_params is None:
+            self.dropout_rate = 0.2
+        else:
+            self.dropout_rate = hyper_params["dropout_rate"]
 
         # load pre-trained resnet model
         root_folder = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -46,23 +56,29 @@ class SiameseNetwork(nn.Module):
         # self.model.classifier = self.model.classifier[:-1]
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
 
+        classfier_input_size = 2 * 3 * num_features
+
         self.classifier = nn.Sequential(
-            nn.BatchNorm1d(num_features=3*num_features),
-            nn.Linear(3*num_features, 128),
+            nn.BatchNorm1d(num_features=classfier_input_size),
+            nn.Linear(classfier_input_size, 128),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(self.dropout_rate),
             nn.BatchNorm1d(num_features=128),
             nn.Linear(128, 64),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(self.dropout_rate),
             nn.BatchNorm1d(num_features=64),
             nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(self.dropout_rate),
             nn.BatchNorm1d(num_features=32),
             nn.Linear(32, 1),
             nn.Sigmoid()
         )
+
+        self.fla = Flatten()
+        self.ap = nn.AdaptiveAvgPool2d((1, 1))
+        self.mp = nn.AdaptiveMaxPool2d((1, 1))
 
         # featu res_layers = self.features.modules()
         # num_layers = len(features_layers)
@@ -97,10 +113,18 @@ class SiameseNetwork(nn.Module):
 
     def forward(self, input1, input2):
         feat1 = self.features(input1)
-        f1 = feat1.view(feat1.size()[0], -1)  # make it suitable for fc layer.
+        f1_avg = self.ap(feat1)
+        f1_max = self.mp(feat1)
+        f1 = torch.cat((f1_avg, f1_max), dim=1)
+        f1 = self.fla(f1)
+        # f1 = feat1.view(feat1.size()[0], -1)  # make it suitable for fc layer.
         # feat1 /= torch.sqrt(torch.sum(feat1**2, dim=1, keepdim=True))
         feat2 = self.features(input2)
-        f2 = feat2.view(feat2.size()[0], -1)  # make it suitable for fc layer.
+        f2_avg = self.ap(feat2)
+        f2_max = self.mp(feat2)
+        f2 = torch.cat((f2_avg, f2_max), dim=1)
+        f2 = self.fla(f2)
+        # f2 = feat2.view(feat2.size()[0], -1)  # make it suitable for fc layer.
         # feat2 /= torch.sqrt(torch.sum(feat2 ** 2, dim=1, keepdim=True))
         # feat = feat1 + feat2
 
@@ -122,9 +146,6 @@ class SiameseNetwork(nn.Module):
         f5 = torch.mul(f1, f2)
 
         feat = torch.cat((f5, f4, f3), dim=1)
-        # feat = torch.cat((f4, f3), dim=1)
-        # feat = feat.view(feat.size()[0], -1)
-        # feat = torch.cat((f1, f2), dim=1)
 
         output = self.classifier(feat)
         return output

@@ -363,7 +363,8 @@ class Resnet50_ft(nn.Module):
         pool5_7x7_s1 = self.pool5_7x7_s1(conv5_3x)
         # classifier_preflatten = self.classifier(pool5_7x7_s1)
         # classifier = classifier_preflatten.view(classifier_preflatten.size(0), -1)
-        return pool5_7x7_s1
+        # return pool5_7x7_s1
+        return conv5_3x
 
 def resnet50_ft(weights_path=None, **kwargs):
     """
