@@ -45,13 +45,13 @@ hyper_params = {
     "min_lr": 5e-8,
     "dropout_rate": 0.2,
     "BATCH_SIZE": 32,
-    "NUMBER_EPOCHS": 100,
+    "NUMBER_EPOCHS": 200,
     "weight_decay": 1e-5,
     "decay_lr": True,
     "lr_decay_factor": 0.1,
     "lr_patience": 15,  # decay every X epochs without improve
     "es_patience": 20,
-    "es_delta": 0.001,
+    "es_delta": 0.01,
     "dataset_version": dataset_version
 }
 print("Hyper parameters:", hyper_params)
