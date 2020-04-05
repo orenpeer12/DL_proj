@@ -62,9 +62,9 @@ image_transforms = {
     # Train uses data augmentation
     'train':
     transforms.Compose([
-        transforms.RandomRotation(degrees=3),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomGrayscale(p=1),
+        # transforms.RandomRotation(degrees=3),
+        # transforms.RandomHorizontalFlip(),
+        # transforms.RandomGrayscale(p=1),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
@@ -74,7 +74,7 @@ image_transforms = {
     # Validation does not use augmentation
     'valid':
     transforms.Compose([
-        transforms.RandomGrayscale(p=1),
+        # transforms.RandomGrayscale(p=1),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
