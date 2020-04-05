@@ -99,7 +99,7 @@ class SiameseNetwork(nn.Module):
         #         print(i, name, ": Not frozen!")
 
         for param in self.features.parameters():
-            param.requires_grad = True
+            param.requires_grad = False
         # for param in self.features.classifier.parameters():
         #     param.requires_grad = False
 

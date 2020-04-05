@@ -15,6 +15,8 @@ from torch.utils.data import DataLoader
 from OurDataset import *
 from SiameseNetwork import *
 import torchvision.transforms as transforms
+from torch import optim
+
 
 def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█', printEnd="\r"):
     """
@@ -167,7 +169,7 @@ def extract_diff_str(train_history):
     return train_loss_diff, val_loss_diff, train_acc_diff, val_acc_diff
 
 
-def create_submission(root_folder, model_name, transform, device=None, net=None):
+def create_submission(root_folder, model_name, transform, device=None):
     # gpu or cpu:
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -183,11 +185,10 @@ def create_submission(root_folder, model_name, transform, device=None, net=None)
     test_loader = torch.utils.data.DataLoader(testset, batch_size=8)
 
     # if needed, load model:
-    if net is None:
-        model_time = model_name.split('_')[0]
-        print('loading best model: '+ model_time)
-        net = torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_model.pt'))
-        net.load_state_dict(torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_state.pt')))
+    model_time = model_name.split('_')[0]
+    print('loading best model: '+ model_time)
+    net = torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_model.pt'))
+    net.load_state_dict(torch.load(root_folder / 'models' / model_time / model_name.replace('.pt', '_state.pt')))
 
     # pass testset through model:
     net.eval()
@@ -280,14 +281,17 @@ def count_params(net):
         trainable_params, non_trainable_params, trainable_params + non_trainable_params))
 #
 #
-# def melt_model(net):
-#     melt_ratio = 0.
-#     for p in net.features.parameters():
-#         if random.uniform(0, 1) > melt_ratio:
-#             p.require_grad = True
-#     net.to(device)
-#     optimizer = optim.Adam(net.parameters(), lr=curr_lr, weight_decay=hyper_params["weight_decay"])
-#     count_params(net)
+
+def melt_model(net, device, curr_lr, hyper_params):
+    print('melting...')
+    for p in net.features.parameters():
+        if random.uniform(0, 1) > hyper_params["melt_ratio"]:
+            p.requires_grad = True
+    net = net.to(device)
+    optimizer = optim.Adam(net.parameters(), lr=curr_lr, weight_decay=hyper_params["weight_decay"])
+    count_params(net)
+    return net, optimizer
+
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""

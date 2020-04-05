@@ -20,7 +20,7 @@ import os
 # np.random.seed(43)
 NUM_WORKERS = 0
 GPU_ID = 0 if 'nir' in os.getcwd() else 1
-# GPU_ID = 0
+GPU_ID = 0
 
 device = torch.device('cuda: ' + str(GPU_ID) if (torch.cuda.is_available() and not sys.platform.__contains__('win')) else 'cpu')
 SAVE_MODELS = True
@@ -33,10 +33,10 @@ root_folder = Path(os.getcwd())
 os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
-# val_sets = ["F07", "F08", "F09"]
-val_sets = ["F09"]
-# dataset_version = 'data_mod'
-dataset_version = 'data'
+val_sets = ["F07", "F08", "F09"]
+# val_sets = ["F09"]
+dataset_version = 'data_mod'
+# dataset_version = 'data'
 # For now, ensembles are different in val-sets.
 # region Hyper Parameters
 hyper_params = {
@@ -49,9 +49,13 @@ hyper_params = {
     "weight_decay": 1e-5,
     "decay_lr": True,
     "lr_decay_factor": 0.1,
-    "lr_patience": 15,  # decay every X epochs without improve
+    "lr_patience": 10,  # decay every X epochs without improve
     "es_patience": 20,
     "es_delta": 0.01,
+    "melt_params": True,
+    "melt_rate": 5,
+    "melt_ratio": 0.5,
+    "comments": "resnet50 with color",
     "dataset_version": dataset_version
 }
 print("Hyper parameters:", hyper_params)
@@ -254,6 +258,8 @@ for val_families in val_sets:
         if early_stopping.early_stop:
             print("Early stopping! onto next val-family!")
             break
+        if hyper_params["melt_params"] and epoch % hyper_params["melt_rate"] == 0 and epoch > 0:
+            net, optimizer = melt_model(net=net, device=device, curr_lr=curr_lr, hyper_params=hyper_params)
 # endregion
 
 # # Save ensemble to json...
