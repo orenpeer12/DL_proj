@@ -43,19 +43,20 @@ hyper_params = {
     "equal_sampling": 1,  # whether to sample equally from each class in each batch
     "init_lr": 1e-5,
     "min_lr": 5e-8,
+    "dropout_rate": 0.2,
     "BATCH_SIZE": 32,
     "NUMBER_EPOCHS": 30,
     "weight_decay": 1e-5,
     "decay_lr": True,
-    "lr_decay_factor": 0.25,
+    "lr_decay_factor": 0.1,
     "lr_patience": 10,  # decay every X epochs without improve
     "es_patience": 20,
     "es_delta": 0.001,
     "melt_params": True,
     "melt_rate": 5,
     "melt_ratio": 0.5,
-    "comments": "resnet50 with color"
-
+    "comments": "resnet50 with color",
+    "dataset_version": dataset_version
 }
 print("Hyper parameters:", hyper_params)
 # endregion
@@ -66,7 +67,7 @@ image_transforms = {
     # Train uses data augmentation
     'train':
     transforms.Compose([
-        transforms.RandomRotation(degrees=2),
+        # transforms.RandomRotation(degrees=3),
         # transforms.RandomHorizontalFlip(),
         # transforms.RandomGrayscale(p=1),
         transforms.ToTensor(),
@@ -107,7 +108,7 @@ folder_dataset = dset.ImageFolder(root=data_path / 'train')
 # region Define Model
 model_name = time.strftime('%d.%m.%H.%M.%S')
 # ensemble.append({"model name": model_name, "val family:": val_families})
-net = SiameseNetwork(model_name)
+net = SiameseNetwork(model_name, hyper_params)
 net.to(device)
 # endregion
 
@@ -148,7 +149,7 @@ if SAVE_MODELS:
     hyper_params["classifier"] = net.classifier.__str__()
     hyper_params["criterion"] = criterion.__str__()
     hyper_params["optimizer"] = optimizer.__str__()
-    hyper_params["transforms"] = transforms.__str__()
+    hyper_params["transforms"] = image_transforms.__str__()
     os.mkdir(root_folder / 'models' / model_name)
 # endregion
 # region Save Run Definitions (Model and Hyper Parameters)
