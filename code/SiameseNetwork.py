@@ -117,16 +117,12 @@ class SiameseNetwork(nn.Module):
         f1_max = self.mp(feat1)
         f1 = torch.cat((f1_avg, f1_max), dim=1)
         f1 = self.fla(f1)
-        # f1 = feat1.view(feat1.size()[0], -1)  # make it suitable for fc layer.
-        # feat1 /= torch.sqrt(torch.sum(feat1**2, dim=1, keepdim=True))
+
         feat2 = self.features(input2)
         f2_avg = self.ap(feat2)
         f2_max = self.mp(feat2)
         f2 = torch.cat((f2_avg, f2_max), dim=1)
         f2 = self.fla(f2)
-        # f2 = feat2.view(feat2.size()[0], -1)  # make it suitable for fc layer.
-        # feat2 /= torch.sqrt(torch.sum(feat2 ** 2, dim=1, keepdim=True))
-        # feat = feat1 + feat2
 
         # f1_max = torch.nn.functional.max_pool2d(feat1, kernel_size=feat1.size()[2:])
         # f1_avg = nn.functional.avg_pool2d(feat1, kernel_size=feat1.size()[2:])

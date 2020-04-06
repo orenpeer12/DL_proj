@@ -33,10 +33,10 @@ root_folder = Path(os.getcwd())
 os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
-val_sets = ["F07", "F08", "F09"]
-# val_sets = ["F09"]
-dataset_version = 'data_mod'
-# dataset_version = 'data'
+# val_sets = ["F07", "F08", "F09"]
+val_sets = ["F09"]
+# dataset_version = 'data_mod'
+dataset_version = 'data'
 # For now, ensembles are different in val-sets.
 # region Hyper Parameters
 hyper_params = {
@@ -52,10 +52,10 @@ hyper_params = {
     "lr_patience": 10,  # decay every X epochs without improve
     "es_patience": 20,
     "es_delta": 0.01,
-    "melt_params": True,
+    "melt_params": False,
     "melt_rate": 5,
     "melt_ratio": 0.5,
-    "comments": "resnet50 with color",
+    # "comments": "resnet50 with color",
     "dataset_version": dataset_version
 }
 print("Hyper parameters:", hyper_params)
