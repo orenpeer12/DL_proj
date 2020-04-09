@@ -20,7 +20,7 @@ import os
 # np.random.seed(43)
 NUM_WORKERS = 0
 GPU_ID = 0 if 'nir' in os.getcwd() else 1
-GPU_ID = 0
+# GPU_ID = 0
 
 device = torch.device('cuda: ' + str(GPU_ID) if (torch.cuda.is_available() and not sys.platform.__contains__('win')) else 'cpu')
 SAVE_MODELS = True
@@ -33,27 +33,27 @@ root_folder = Path(os.getcwd())
 os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
-val_sets = ["F07", "F08", "F09"]
-# val_sets = ["F09"]
-dataset_version = 'data_mod'
-# dataset_version = 'data'
+# val_sets = ["F07", "F08", "F09"]
+val_sets = ["F09"]
+# dataset_version = 'data_mod'
+dataset_version = 'data'
 # For now, ensembles are different in val-sets.
 # region Hyper Parameters
 hyper_params = {
     "equal_sampling": 1,  # whether to sample equally from each class in each batch
     "init_lr": 1e-5,
     "min_lr": 5e-8,
-    "dropout_rate": 0.2,
+    "dropout_rate": 0.2 ,
     "BATCH_SIZE": 32,
-    "NUMBER_EPOCHS": 30,
-    "weight_decay": 1e-5,
+    "NUMBER_EPOCHS": 50,
+    "weight_decay": 1e-6,
     "decay_lr": True,
-    "lr_decay_factor": 0.1,
-    "lr_patience": 10,  # decay every X epochs without improve
-    "es_patience": 20,
+    "lr_decay_factor": 0.5,
+    "lr_patience": 8,
+    "es_patience": 25,
     "es_delta": 0.001,
     "melt_params": True,
-    "melt_rate": 5,
+    "melt_rate": 6,
     "melt_ratio": 0.5,
     "comments": "resnet50 with color",
     "dataset_version": dataset_version
@@ -67,9 +67,9 @@ image_transforms = {
     # Train uses data augmentation
     'train':
     transforms.Compose([
-        # transforms.RandomRotation(degrees=3),
+        # transforms.RandomRotation(degrees=1),
         # transforms.RandomHorizontalFlip(),
-        # transforms.RandomGrayscale(p=1),
+        transforms.RandomGrayscale(p=1.),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
@@ -79,7 +79,7 @@ image_transforms = {
     # Validation does not use augmentation
     'valid':
     transforms.Compose([
-        # transforms.RandomGrayscale(p=1),
+        transforms.RandomGrayscale(p=1.),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
@@ -114,7 +114,7 @@ net.to(device)
 
 # region Define Loss and Optimizer
 criterion = nn.BCELoss().to(device)
-optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
+optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
 lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
     optimizer, mode='max', factor=hyper_params['lr_decay_factor'],
     patience=hyper_params['lr_patience'], min_lr=hyper_params["min_lr"], verbose=1)

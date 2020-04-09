@@ -17,11 +17,6 @@ import torch
 # Parameters:
 ##
 random.seed(42)
-NUM_WORKERS = 4
-GPU_ID = 0 if 'nir' in os.getcwd() else 1
-device = torch.device('cuda: ' + str(GPU_ID) if torch.cuda.is_available() else 'cpu')
-# device = torch.device('cpu')
-
 ensemble_name = 'en4'
 root_folder = Path(os.getcwd())
 submission_folder = root_folder / 'submissions_files' / ensemble_name
@@ -40,14 +35,24 @@ ensemble_csvs = [pd.read_csv(s) for s in submissions_paths]
 all_sigmoids = np.vstack([np.array(csv.is_related) for csv in ensemble_csvs])
 
 res1 = np.mean(all_sigmoids, axis=0)
-# a = np.abs(res -.5)
-# b = []
-# for i in range(a.shape[1]):
-#     best_idx_in_line = np.argmax(a[:, i])
-#     b.append(res[best_idx_in_line][i])
-# res = np.array(b)
-df_submit.is_related = res1
 
+certainty = np.abs(all_sigmoids - 0.5)
+res2 = []
+for i in range(certainty.shape[1]):
+    p = np.percentile(certainty[:, i], 50)
+    line_idxs = certainty[:, i] > p
+    line_values = all_sigmoids[line_idxs, i]
+    win = 1 if np.mean(line_values) > 0.5 else 0
+    mean_of_win = np.mean(line_values[line_values > 0.5] if win == 1 else line_values[line_values <= 0.5])
+    # mean_of_win = np.mean(all_sigmoids[all_sigmoids[:, i] > 0.5, i] if win == 1 else \
+    #                             all_sigmoids[all_sigmoids[:, i] <= 0.5, i])
+
+    res2.append(mean_of_win)
+res2 = np.array(res2)
+
+res = res1
+
+df_submit.is_related = res
 # write submission
 res1 = df_submit.to_csv(dst_submission_path, index=False)
 # submit file

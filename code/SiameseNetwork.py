@@ -56,7 +56,8 @@ class SiameseNetwork(nn.Module):
         # self.model.classifier = self.model.classifier[:-1]
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
 
-        classfier_input_size = 2 * 3 * num_features
+        # classfier_input_size = 2 * 3 * num_features
+        classfier_input_size = num_features
 
         self.classifier = nn.Sequential(
             nn.BatchNorm1d(num_features=classfier_input_size),
@@ -70,7 +71,7 @@ class SiameseNetwork(nn.Module):
             nn.BatchNorm1d(num_features=64),
             nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Dropout(self.dropout_rate),
+            # nn.Dropout(self.dropout_rate),
             nn.BatchNorm1d(num_features=32),
             nn.Linear(32, 1),
             nn.Sigmoid()
@@ -124,28 +125,19 @@ class SiameseNetwork(nn.Module):
         f2_max = self.mp(feat2)
         f2 = torch.cat((f2_avg, f2_max), dim=1)
         f2 = self.fla(f2)
-        # f2 = feat2.view(feat2.size()[0], -1)  # make it suitable for fc layer.
-        # feat2 /= torch.sqrt(torch.sum(feat2 ** 2, dim=1, keepdim=True))
-        # feat = feat1 + feat2
-
-        # f1_max = torch.nn.functional.max_pool2d(feat1, kernel_size=feat1.size()[2:])
-        # f1_avg = nn.functional.avg_pool2d(feat1, kernel_size=feat1.size()[2:])
-        # f1 = torch.cat((f1_max, f1_avg), dim=1)
-        #
-        # f2_max = torch.nn.functional.max_pool2d(feat2, kernel_size=feat2.size()[2:])
-        # f2_avg = nn.functional.avg_pool2d(feat2, kernel_size=feat2.size()[2:])
-        # f2 = torch.cat((f2_max, f2_avg), dim=1)
 
         f3 = torch.sub(f1, f2)
         f3 = torch.mul(f3, f3)
 
-        f1_ = torch.mul(f1, f1)
-        f2_ = torch.mul(f2, f2)
-        f4 = torch.sub(f1_, f2_)
+        # f1_ = torch.mul(f1, f1)
+        # f2_ = torch.mul(f2, f2)
+        # f4 = torch.sub(f1_, f2_)
 
-        f5 = torch.mul(f1, f2)
+        # f5 = torch.mul(f1, f2)
 
-        feat = torch.cat((f5, f4, f3), dim=1)
+        # feat = torch.cat((f5, f4, f3), dim=1)
+        # feat = torch.cat((f4, f3), dim=1)
+        feat = f3
 
         output = self.classifier(feat)
         return output
