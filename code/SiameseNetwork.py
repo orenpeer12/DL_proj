@@ -37,9 +37,9 @@ class SiameseNetwork(nn.Module):
         senet50_256_model = senet50_256(
             root_folder / 'pre_trained_models_weights' / 'senet50_256_pytorch' / 'senet50_256.pth')
 
-        # pretrained_model = resnet50_model
-        # pretrained_model = resnet50_128_model
-        pretrained_model = senet50_256_model
+        pretrained_model = resnet50_model
+        # pretrain  ed_model = resnet50_128_model
+        # pretrained_model = senet50_256_model
 
         self.features = pretrained_model
         # throw away last layer ("classifier") in resnet50:
@@ -80,23 +80,6 @@ class SiameseNetwork(nn.Module):
         self.ap = nn.AdaptiveAvgPool2d((1, 1))
         self.mp = nn.AdaptiveMaxPool2d((1, 1))
 
-        # featu res_layers = self.features.modules()
-        # num_layers = len(features_layers)
-        # num_trainable_layers = 3
-
-        # for x in features_layers[:-num_trainable_layers]:
-        #     x.requires_grad = False
-        # for x in features_layers[-num_trainable_layers:]:
-        #     x.requires_grad = True
-        #     print(x, ": Not frozen!")
-
-        # for i, (name, param) in enumerate(features_layers):
-        #     print(name)
-        #     if i < num_layers - num_trainable_layers:
-        #         param.requires_grad = False
-        #     else:
-        #         param.requires_grad = True
-        #         print(i, name, ": Not frozen!")
 
         if hyper_params["melt_params"]:
             for param in self.features.parameters():
@@ -107,8 +90,6 @@ class SiameseNetwork(nn.Module):
 
         self.initialize()
 
-        # self.model.classifier.add_module('Our Classifier', nn.Linear(2 * num_features, 1))
-        # self.model.classifier.add_module('Our Sigmoid', nn.Sigmoid())
 
     def forward(self, input1, input2):
         feat1 = self.features(input1)
@@ -122,14 +103,6 @@ class SiameseNetwork(nn.Module):
         f2_max = self.mp(feat2)
         f2 = torch.cat((f2_avg, f2_max), dim=1)
         f2 = self.fla(f2)
-
-        # f1_max = torch.nn.functional.max_pool2d(feat1, kernel_size=feat1.size()[2:])
-        # f1_avg = nn.functional.avg_pool2d(feat1, kernel_size=feat1.size()[2:])
-        # f1 = torch.cat((f1_max, f1_avg), dim=1)
-        #
-        # f2_max = torch.nn.functional.max_pool2d(feat2, kernel_size=feat2.size()[2:])
-        # f2_avg = nn.functional.avg_pool2d(feat2, kernel_size=feat2.size()[2:])
-        # f2 = torch.cat((f2_max, f2_avg), dim=1)
 
         f3 = torch.sub(f1, f2)
         f3 = torch.mul(f3, f3)

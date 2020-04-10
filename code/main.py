@@ -20,7 +20,7 @@ import os
 # np.random.seed(43)
 NUM_WORKERS = 0
 GPU_ID = 0 if 'nir' in os.getcwd() else 1
-GPU_ID = 0
+# GPU_ID = 0
 
 if torch.cuda.is_available():
     util0 = int(os.popen('nvidia-smi -i 0 --query-gpu=utilization.gpu --format=noheader,csv,nounits').read().replace('\n', ''))
@@ -54,20 +54,20 @@ dataset_version = 'data'
 # region Hyper Parameters
 hyper_params = {
     "equal_sampling": 1,  # whether to sample equally from each class in each batch
-    "init_lr": 1e-5,
+    "init_lr": 5e-4,
     "min_lr": 5e-8,
     "max_lr": 1,
     "lambda_lr": False,
     "lambda_lr_mode": "triangular2",
     "lr_step_size": 10,
     "dropout_rate": 0.2,
-    "BATCH_SIZE": 32,
-    "NUMBER_EPOCHS": 200,
-    "weight_decay": 1e-4,
+    "BATCH_SIZE": 40,
+    "NUMBER_EPOCHS": 100,
+    "weight_decay": 1e-5,
     "decay_lr": True,
     "lr_decay_factor": 0.1,
     "lr_patience": 15,  # decay every X epochs without improve
-    "es_patience": 25,
+    "es_patience": 150,
     "es_delta": 0.0001,
     "melt_params": False,
     "melt_rate": 5,
@@ -84,7 +84,7 @@ image_transforms = {
     # Train uses data augmentation
     'train':
     transforms.Compose([
-        # transforms.RandomRotation(degrees=3),
+        # transforms.RandomRotation(degrees=1),
         # transforms.RandomHorizontalFlip(),
         # transforms.RandomGrayscale(p=1),
         transforms.ToTensor(),
@@ -113,14 +113,6 @@ image_transforms = {
 data_path = root_folder / dataset_version / 'faces'
 folder_dataset = dset.ImageFolder(root=data_path / 'train')
 
-# Visualize data in dataloader.
-# trainset.__getitem__(1)
-# dataiter = iter(trainloader)
-# example_batch = next(dataiter)
-# concatenated = torch.cat((example_batch[0],example_batch[1]),0)
-# imshow(torchvision.utils.make_grid(concatenated))
-# print(example_batch[2].numpy())
-# endregion
 
 # region Define Model
 model_name = time.strftime('%d.%m.%H.%M.%S')
@@ -134,6 +126,8 @@ criterion = nn.BCELoss().to(device)
 optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()),
                        lr=hyper_params["init_lr"],
                        weight_decay=hyper_params["weight_decay"])
+
+model_melter = melt_model(device, hyper_params)
 
 if hyper_params["lambda_lr"]:
     clr = cyclical_lr(hyper_params["lr_step_size"],
@@ -288,8 +282,8 @@ for val_families in val_sets:
         if early_stopping.early_stop:
             print("Early stopping! onto next val-family!")
             break
-        if hyper_params["melt_params"] and epoch % hyper_params["melt_rate"] == 0 and epoch > 0:
-            net, optimizer = melt_model(net=net, device=device, curr_lr=curr_lr, hyper_params=hyper_params)
+
+        net, optimizer = model_melter.melt(net=net, optimizer=optimizer, curr_lr=curr_lr, epoch=epoch)
 # endregion
 
 # # Save ensemble to json...

@@ -283,17 +283,32 @@ def count_params(net):
 #
 #
 
-def melt_model(net, device, curr_lr, hyper_params):
-    print('melting...')
-    for p in net.features.parameters():
-        if random.uniform(0, 1) > hyper_params["melt_ratio"]:
-            p.requires_grad = True
-    net = net.to(device)
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()),
-                           lr=hyper_params["init_lr"],
-                           weight_decay=hyper_params["weight_decay"])
-    count_params(net)
-    return net, optimizer
+class melt_model:
+    def __init__(self, device, hyper_params):
+        self.device = device
+        self.hyper_params = hyper_params
+        self.melted = False
+        self.epoch = 0
+
+    def melt(self, net, optimizer, curr_lr, epoch):
+        if self.hyper_params["melt_params"] and epoch % self.hyper_params["melt_rate"] == 0 and epoch > 0 and not self.melted:
+            print('melting...')
+            is_melted = True
+            for p in net.features.parameters():
+                is_melted = is_melted and p.requires_grad
+                if random.uniform(0, 1) > 1 - self.melt_ratio:
+                    p.requires_grad = True
+
+            if is_melted:
+                print('model melted!')
+                self.melted = True
+
+            net = net.to(self.device)
+            optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()),
+                                   lr=curr_lr,
+                                   weight_decay=self.hyper_params["weight_decay"])
+            count_params(net)
+        return net, optimizer
 
 
 class EarlyStopping:
