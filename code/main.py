@@ -22,6 +22,19 @@ NUM_WORKERS = 0
 GPU_ID = 0 if 'nir' in os.getcwd() else 1
 GPU_ID = 0
 
+if torch.cuda.is_available():
+    util0 = int(os.popen('nvidia-smi -i 0 --query-gpu=utilization.gpu --format=noheader,csv,nounits').read().replace('\n', ''))
+    util1 = int(os.popen('nvidia-smi -i 1 --query-gpu=utilization.gpu --format=noheader,csv,nounits').read().replace('\n', ''))
+    if util0 < 10:
+        GPU_ID = 0
+    elif util1 < 10:
+        GPU_ID = 1
+    else:
+        print('No GPU available, exiting...')
+        exit()
+
+print('Running on GPU ' + str(GPU_ID))
+
 device = torch.device('cuda: ' + str(GPU_ID) if (torch.cuda.is_available() and not sys.platform.__contains__('win')) else 'cpu')
 SAVE_MODELS = True
 CREATE_SUBMISSION = True
@@ -35,31 +48,31 @@ os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 
 # val_sets = ["F07", "F08", "F09"]
 val_sets = ["F09"]
-# dataset_version = 'data_mod'
-dataset_version = 'data'
+dataset_version = 'data_mod'
+# dataset_version = 'data'
 # For now, ensembles are different in val-sets.
 # region Hyper Parameters
 hyper_params = {
     "equal_sampling": 1,  # whether to sample equally from each class in each batch
-    "init_lr": 1e-4,
+    "init_lr": 1e-5,
     "min_lr": 5e-8,
     "max_lr": 1,
     "lambda_lr": False,
     "lambda_lr_mode": "triangular2",
     "lr_step_size": 10,
-    "dropout_rate": 0.1,
-    "BATCH_SIZE": 16,
+    "dropout_rate": 0.2,
+    "BATCH_SIZE": 32,
     "NUMBER_EPOCHS": 200,
-    "weight_decay": 1e-5,
+    "weight_decay": 1e-4,
     "decay_lr": True,
     "lr_decay_factor": 0.1,
     "lr_patience": 15,  # decay every X epochs without improve
-    "es_patience": 20,
+    "es_patience": 25,
     "es_delta": 0.0001,
-    "melt_params": False,
+    "melt_params": True,
     "melt_rate": 5,
     "melt_ratio": 0.5,
-    # "comments": "resnet50 with color",
+    "comments": "changed f4 to f4^2",
     "dataset_version": dataset_version
 }
 print("Hyper parameters:", hyper_params)
@@ -71,9 +84,9 @@ image_transforms = {
     # Train uses data augmentation
     'train':
     transforms.Compose([
-        # transforms.RandomRotation(degrees=3),
-        # transforms.RandomHorizontalFlip(),
-        # transforms.RandomGrayscale(p=1),
+        transforms.RandomRotation(degrees=3),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomGrayscale(p=1),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
@@ -83,7 +96,7 @@ image_transforms = {
     # Validation does not use augmentation
     'valid':
     transforms.Compose([
-        # transforms.RandomGrayscale(p=1),
+        transforms.RandomGrayscale(p=1),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
