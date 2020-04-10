@@ -118,7 +118,9 @@ net.to(device)
 
 # region Define Loss and Optimizer
 criterion = nn.BCELoss().to(device)
-optimizer = optim.Adam(net.parameters(), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
+optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()),
+                       lr=hyper_params["init_lr"],
+                       weight_decay=hyper_params["weight_decay"])
 
 if hyper_params["lambda_lr"]:
     clr = cyclical_lr(hyper_params["lr_step_size"],

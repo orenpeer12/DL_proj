@@ -37,9 +37,9 @@ class SiameseNetwork(nn.Module):
         senet50_256_model = senet50_256(
             root_folder / 'pre_trained_models_weights' / 'senet50_256_pytorch' / 'senet50_256.pth')
 
-        pretrained_model = resnet50_model
+        # pretrained_model = resnet50_model
         # pretrained_model = resnet50_128_model
-        # pretrained_model = senet50_256_model
+        pretrained_model = senet50_256_model
 
         self.features = pretrained_model
         # throw away last layer ("classifier") in resnet50:
@@ -50,7 +50,7 @@ class SiameseNetwork(nn.Module):
         elif isinstance(self.features, Resnet50_128):
             num_features = 128
         elif isinstance(self.features, Senet50_256):
-            num_features = 256
+            num_features = self.features.feat_extract.in_channels
         print("features space size: {}".format(num_features))
         # common part ('siamese')
         # self.model.classifier = self.model.classifier[:-1]
@@ -70,7 +70,7 @@ class SiameseNetwork(nn.Module):
             nn.BatchNorm1d(num_features=64),
             nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Dropout(self.dropout_rate),
+            #nn.Dropout(self.dropout_rate),
             nn.BatchNorm1d(num_features=32),
             nn.Linear(32, 1),
             nn.Sigmoid()
@@ -98,13 +98,12 @@ class SiameseNetwork(nn.Module):
         #         param.requires_grad = True
         #         print(i, name, ": Not frozen!")
 
-        for param in self.features.parameters():
-            param.requires_grad = False
-        # for param in self.features.classifier.parameters():
-        #     param.requires_grad = False
-
-        # for i, param in enumerate(self.model.classifier.parameters()):
-        #     param.requires_grad = False
+        if hyper_params["melt_params"]:
+            for param in self.features.parameters():
+                param.requires_grad = False
+        else:
+            for param in self.features.parameters():
+                param.requires_grad = True
 
         self.initialize()
 
@@ -138,6 +137,7 @@ class SiameseNetwork(nn.Module):
         f1_ = torch.mul(f1, f1)
         f2_ = torch.mul(f2, f2)
         f4 = torch.sub(f1_, f2_)
+        f4 = torch.mul(f4, f4)
 
         f5 = torch.mul(f1, f2)
 
