@@ -46,10 +46,10 @@ root_folder = Path(os.getcwd())
 os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
-# val_sets = ["F07", "F08", "F09"]
-val_sets = ["F09"]
-dataset_version = 'data_mod'
-# dataset_version = 'data'
+val_sets = ["F07", "F08", "F09"]
+# val_sets = ["F09"]
+# dataset_version = 'data_mod'
+dataset_version = 'data'
 # For now, ensembles are different in val-sets.
 # region Hyper Parameters
 hyper_params = {
@@ -69,7 +69,7 @@ hyper_params = {
     "lr_patience": 15,  # decay every X epochs without improve
     "es_patience": 25,
     "es_delta": 0.0001,
-    "melt_params": True,
+    "melt_params": False,
     "melt_rate": 5,
     "melt_ratio": 0.5,
     "comments": "changed f4 to f4^2",
@@ -84,9 +84,9 @@ image_transforms = {
     # Train uses data augmentation
     'train':
     transforms.Compose([
-        transforms.RandomRotation(degrees=3),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomGrayscale(p=1),
+        # transforms.RandomRotation(degrees=3),
+        # transforms.RandomHorizontalFlip(),
+        # transforms.RandomGrayscale(p=1),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
@@ -96,7 +96,7 @@ image_transforms = {
     # Validation does not use augmentation
     'valid':
     transforms.Compose([
-        transforms.RandomGrayscale(p=1),
+        # transforms.RandomGrayscale(p=1),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,

@@ -63,12 +63,12 @@ privateScore = np.array([x[privateScoreIdx] for x in submissions], dtype=float)
 
 method = 'top'  # 'top' or 'threshold'
 score = 'public'  # 'public' or 'private'
-func = 'wmean'  # 'mean', 'wmean', 'l1', 'l2', 'certainty'
+func = 'l1'  # 'mean', 'wmean', 'l1', 'l2', 'certainty'
 
 score_vec = publicScore if score == 'public' else privateScore
 K = 30
 threshold = 0.85
-p_certainty = 0.8
+p_certainty = 0.5
 mean_certain = True
 
 if method == 'top':
