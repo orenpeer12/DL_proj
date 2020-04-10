@@ -289,7 +289,10 @@ def melt_model(net, device, curr_lr, hyper_params):
         if random.uniform(0, 1) > hyper_params["melt_ratio"]:
             p.requires_grad = True
     net = net.to(device)
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
+
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()),
+                           lr=hyper_params["init_lr"],
+                           weight_decay=hyper_params["weight_decay"])
     count_params(net)
     return net, optimizer
 
