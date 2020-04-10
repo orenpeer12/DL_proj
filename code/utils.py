@@ -1,3 +1,4 @@
+import math
 from collections import defaultdict
 
 import pandas as pd
@@ -288,7 +289,7 @@ def melt_model(net, device, curr_lr, hyper_params):
         if random.uniform(0, 1) > hyper_params["melt_ratio"]:
             p.requires_grad = True
     net = net.to(device)
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=curr_lr, weight_decay=hyper_params["weight_decay"])
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
     count_params(net)
     return net, optimizer
 
@@ -337,3 +338,35 @@ class EarlyStopping:
             print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         torch.save(model.state_dict(), 'checkpoint.pt')
         self.val_loss_min = val_loss
+
+
+def cyclical_lr(step_sz, min_lr=0.001, max_lr=1, mode='triangular', scale_func=None, scale_md='cycles', gamma=1.):
+    if scale_func == None:
+        if mode == 'triangular':
+            scale_fn = lambda x: 1.
+            scale_mode = 'cycles'
+        elif mode == 'triangular2':
+            scale_fn = lambda x: 1 / (2.**(x - 1))
+            scale_mode = 'cycles'
+        elif mode == 'exp_range':
+            scale_fn = lambda x: gamma**(x)
+            scale_mode = 'iterations'
+        else:
+            raise ValueError(f'The {mode} is not valid value!')
+    else:
+        scale_fn = scale_func
+        scale_mode = scale_md
+
+    lr_lambda = lambda iters: min_lr + (max_lr - min_lr) * rel_val(iters, step_sz, scale_mode)
+
+    def rel_val(iteration, stepsize, mode):
+        cycle = math.floor(1 + iteration / (2 * stepsize))
+        x = abs(iteration / stepsize - 2 * cycle + 1)
+        if mode == 'cycles':
+            return max(0, (1 - x)) * scale_fn(cycle)
+        elif mode == 'iterations':
+            return max(0, (1 - x)) * scale_fn(iteration)
+        else:
+            raise ValueError(f'The {scale_mode} is not valid value!')
+
+    return lr_lambda

@@ -41,21 +41,25 @@ dataset_version = 'data'
 # region Hyper Parameters
 hyper_params = {
     "equal_sampling": 1,  # whether to sample equally from each class in each batch
-    "init_lr": 1e-5,
+    "init_lr": 1e-4,
     "min_lr": 5e-8,
-    "dropout_rate": 0.2 ,
+    "max_lr": 1,
+    "lambda_lr": False,
+    "lambda_lr_mode": "triangular2",
+    "lr_step_size": 10,
+    "dropout_rate": 0.1,
     "BATCH_SIZE": 32,
-    "NUMBER_EPOCHS": 50,
-    "weight_decay": 1e-6,
+    "NUMBER_EPOCHS": 200,
+    "weight_decay": 1e-5,
     "decay_lr": True,
-    "lr_decay_factor": 0.5,
-    "lr_patience": 8,
-    "es_patience": 25,
-    "es_delta": 0.001,
+    "lr_decay_factor": 0.1,
+    "lr_patience": 15,  # decay every X epochs without improve
+    "es_patience": 20,
+    "es_delta": 0.0001,
     "melt_params": True,
-    "melt_rate": 6,
+    "melt_rate": 5,
     "melt_ratio": 0.5,
-    "comments": "resnet50 with color",
+    # "comments": "resnet50 with color",
     "dataset_version": dataset_version
 }
 print("Hyper parameters:", hyper_params)
@@ -69,7 +73,7 @@ image_transforms = {
     transforms.Compose([
         # transforms.RandomRotation(degrees=1),
         # transforms.RandomHorizontalFlip(),
-        transforms.RandomGrayscale(p=1.),
+        # transforms.RandomGrayscale(p=1.),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
@@ -79,7 +83,7 @@ image_transforms = {
     # Validation does not use augmentation
     'valid':
     transforms.Compose([
-        transforms.RandomGrayscale(p=1.),
+        # transforms.RandomGrayscale(p=1.),
         transforms.ToTensor(),
         scale_tensor_255,
         rgb2bgr,
@@ -115,9 +119,17 @@ net.to(device)
 # region Define Loss and Optimizer
 criterion = nn.BCELoss().to(device)
 optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=hyper_params["init_lr"], weight_decay=hyper_params["weight_decay"])
-lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, mode='max', factor=hyper_params['lr_decay_factor'],
-    patience=hyper_params['lr_patience'], min_lr=hyper_params["min_lr"], verbose=1)
+
+if hyper_params["lambda_lr"]:
+    clr = cyclical_lr(hyper_params["lr_step_size"],
+                      min_lr=hyper_params["min_lr"],
+                      max_lr=hyper_params["max_lr"],
+                      mode=hyper_params["lambda_lr_mode"])
+    lr_scheduler = optim.lr_scheduler.LambdaLR(optimizer, [clr])
+else:
+    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='max', factor=hyper_params['lr_decay_factor'],
+        patience=hyper_params['lr_patience'], min_lr=hyper_params["min_lr"], verbose=1)
 
 # endregion
 
@@ -227,7 +239,10 @@ for val_families in val_sets:
         val_loss /= batch_counter
 
         # LR Scheduler
-        lr_scheduler.step(val_acc)
+        if hyper_params["lambda_lr"]:
+            lr_scheduler.step()
+        else:
+            lr_scheduler.step(val_acc)
         curr_lr = optimizer.param_groups[0]['lr']
 
         if val_acc > best_val_acc:

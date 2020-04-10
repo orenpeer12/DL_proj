@@ -56,8 +56,7 @@ class SiameseNetwork(nn.Module):
         # self.model.classifier = self.model.classifier[:-1]
         # Separate part - 2 featurs_vectors -> one long vector -> classify:
 
-        # classfier_input_size = 2 * 3 * num_features
-        classfier_input_size = num_features
+        classfier_input_size = 2 * 3 * num_features
 
         self.classifier = nn.Sequential(
             nn.BatchNorm1d(num_features=classfier_input_size),
@@ -71,7 +70,7 @@ class SiameseNetwork(nn.Module):
             nn.BatchNorm1d(num_features=64),
             nn.Linear(64, 32),
             nn.ReLU(),
-            # nn.Dropout(self.dropout_rate),
+            nn.Dropout(self.dropout_rate),
             nn.BatchNorm1d(num_features=32),
             nn.Linear(32, 1),
             nn.Sigmoid()
@@ -81,36 +80,16 @@ class SiameseNetwork(nn.Module):
         self.ap = nn.AdaptiveAvgPool2d((1, 1))
         self.mp = nn.AdaptiveMaxPool2d((1, 1))
 
-        # featu res_layers = self.features.modules()
-        # num_layers = len(features_layers)
-        # num_trainable_layers = 3
+        if hyper_params['melt_params']:
+            for param in self.features.parameters():
+                param.requires_grad = False
+        else:
+            for param in self.features.parameters():
+                param.requires_grad = True
 
-        # for x in features_layers[:-num_trainable_layers]:
-        #     x.requires_grad = False
-        # for x in features_layers[-num_trainable_layers:]:
-        #     x.requires_grad = True
-        #     print(x, ": Not frozen!")
-
-        # for i, (name, param) in enumerate(features_layers):
-        #     print(name)
-        #     if i < num_layers - num_trainable_layers:
-        #         param.requires_grad = False
-        #     else:
-        #         param.requires_grad = True
-        #         print(i, name, ": Not frozen!")
-
-        for param in self.features.parameters():
-            param.requires_grad = False
-        # for param in self.features.classifier.parameters():
-        #     param.requires_grad = False
-
-        # for i, param in enumerate(self.model.classifier.parameters()):
-        #     param.requires_grad = False
 
         self.initialize()
 
-        # self.model.classifier.add_module('Our Classifier', nn.Linear(2 * num_features, 1))
-        # self.model.classifier.add_module('Our Sigmoid', nn.Sigmoid())
 
     def forward(self, input1, input2):
         feat1 = self.features(input1)
@@ -118,8 +97,7 @@ class SiameseNetwork(nn.Module):
         f1_max = self.mp(feat1)
         f1 = torch.cat((f1_avg, f1_max), dim=1)
         f1 = self.fla(f1)
-        # f1 = feat1.view(feat1.size()[0], -1)  # make it suitable for fc layer.
-        # feat1 /= torch.sqrt(torch.sum(feat1**2, dim=1, keepdim=True))
+
         feat2 = self.features(input2)
         f2_avg = self.ap(feat2)
         f2_max = self.mp(feat2)
@@ -129,15 +107,14 @@ class SiameseNetwork(nn.Module):
         f3 = torch.sub(f1, f2)
         f3 = torch.mul(f3, f3)
 
-        # f1_ = torch.mul(f1, f1)
-        # f2_ = torch.mul(f2, f2)
-        # f4 = torch.sub(f1_, f2_)
+        f1_ = torch.mul(f1, f1)
+        f2_ = torch.mul(f2, f2)
+        f4 = torch.sub(f1_, f2_)
+        f4 = torch.mul(f4, f4)
 
-        # f5 = torch.mul(f1, f2)
+        f5 = torch.mul(f1, f2)
 
-        # feat = torch.cat((f5, f4, f3), dim=1)
-        # feat = torch.cat((f4, f3), dim=1)
-        feat = f3
+        feat = torch.cat((f5, f4, f3), dim=1)
 
         output = self.classifier(feat)
         return output
