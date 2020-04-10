@@ -13,8 +13,6 @@ import requests
 from utils import *
 from OurDataset import *
 import torch
-import kaggle
-from kaggle.api.kaggle_api_extended import KaggleApi
 import numpy.matlib
 # endregion
 
@@ -24,7 +22,9 @@ import numpy.matlib
 root_folder = Path(os.getcwd()).parent
 
 # set kaggle folder
-os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..' )
+os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
+
+from kaggle.api.kaggle_api_extended import KaggleApi
 
 api = KaggleApi()
 api.authenticate()
@@ -33,24 +33,43 @@ fields, submissions = api.competition_submissions_cli(competition='recognizing-f
                                     csv_display=True,
                                     quiet=True)
 
+api = KaggleApi()
+api.config_file = 'kaggle-oren.json'
+api.config = 'C:\\Users\\Nir\\.kaggle\\kaggle-oren.json'
+api.authenticate()
+fields, oren_submissions = api.competition_submissions_cli(competition='recognizing-faces-in-the-wild',
+                                    competition_opt=None,
+                                    csv_display=True,
+                                    quiet=True)
+
+api = KaggleApi()
+api.authenticate()
+
+submissions += oren_submissions
+
 publicScoreIdx = fields.index('publicScore')
 privateScoreIdx = fields.index('privateScore')
 filenameIdx = fields.index('fileName')
 urlIdx = fields.index('url')
 
 # filter previous auto ensembles
-submissions = list(filter(lambda s: not s[filenameIdx].startswith('auto_en_'), submissions))
+submissions = list(filter(lambda s: not s[filenameIdx].startswith('auto_en_') and not s[filenameIdx].startswith('en'), submissions))
+
+# filter submission with 'None' result
+submissions = list(filter(lambda s: s[publicScoreIdx] != 'None', submissions))
 
 publicScore = np.array([x[publicScoreIdx] for x in submissions], dtype=float)
 privateScore = np.array([x[privateScoreIdx] for x in submissions], dtype=float)
 
 method = 'top'  # 'top' or 'threshold'
 score = 'public'  # 'public' or 'private'
-func = 'l2'  # 'mean', 'wmean', 'l1', 'l2'
+func = 'wmean'  # 'mean', 'wmean', 'l1', 'l2', 'certainty'
 
 score_vec = publicScore if score == 'public' else privateScore
-K = 10
+K = 30
 threshold = 0.85
+p_certainty = 0.8
+mean_certain = True
 
 if method == 'top':
     topIdx = np.argsort(score_vec)[-K:]
@@ -84,13 +103,29 @@ if func == 'mean':
 elif func == 'wmean':
     res1 = np.average(all_sigmoids, axis=0, weights=weights)
 elif func == 'l1':
-    weights = np.abs(selected_scores - 0.5)
-    weights_mat = numpy.matlib.repmat(weights, all_sigmoids.shape[1], 1).T
-    res1 = np.sum(np.multiply(all_sigmoids, weights_mat), axis=0) / np.sum(weights)
+    weights = np.abs(all_sigmoids - 0.5)
+    res1 = np.zeros((all_sigmoids.shape[1], 1), dtype=float)
+    for i in range(all_sigmoids.shape[1]):
+        res1[i] = np.average(all_sigmoids[:, i], axis=0, weights=weights[:, i])
 elif func == 'l2':
-    weights = (selected_scores - 0.5)**2
-    weights_mat = numpy.matlib.repmat(weights, all_sigmoids.shape[1], 1).T
-    res1 = np.sum(np.multiply(all_sigmoids, weights_mat), axis=0) / np.sum(weights)
+    weights = (all_sigmoids - 0.5)**2
+    res1 = np.zeros((all_sigmoids.shape[1], 1), dtype=float)
+    for i in range(all_sigmoids.shape[1]):
+        res1[i] = np.average(all_sigmoids[:, i], axis=0, weights=weights[:, i])
+elif func == 'certainty':
+    certainty = np.abs(all_sigmoids - 0.5)
+    res1 = []
+    for i in range(certainty.shape[1]):
+        p = np.percentile(certainty[:, i], p_certainty * 100)
+        line_idxs = certainty[:, i] > p
+        line_values = all_sigmoids[line_idxs, i]
+        win = 1 if np.mean(line_values) > 0.5 else 0
+        if mean_certain:
+            mean_of_win = np.mean(line_values[line_values > 0.5] if win == 1 else line_values[line_values <= 0.5])
+        else:
+            mean_of_win = np.mean(all_sigmoids[all_sigmoids[:, i] > 0.5, i] if win == 1 else \
+                                      all_sigmoids[all_sigmoids[:, i] <= 0.5, i])
+        res1.append(mean_of_win)
 
 # get the sample submission file for loading pairs, and create the new submission file.
 ensemble_name = 'auto_en_' + time.strftime('%d.%m.%H.%M.%S')
@@ -109,7 +144,9 @@ with open(str(dst_submission_path).replace('.csv', '.txt'), "wt") as f:
     f.write('score: ' + score + '\n')
     f.write('func: ' + func + '\n')
     f.write('K: ' + str(K) + '\n')
-    f.write('threshold: ' + str(threshold))
+    f.write('threshold: ' + str(threshold) + '\n')
+    f.write('p_certainty: ' + str(p_certainty) + '\n')
+    f.write('mean_certain: ' + str(mean_certain) + '\n')
 
 # submit file
 os.system('kaggle competitions submit -c recognizing-faces-in-the-wild -f ' +
