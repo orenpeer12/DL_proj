@@ -9,6 +9,7 @@ from torch.nn.init import kaiming_normal_
 from pre_trained_models.resnet50_ft_pytorch.resnet50_ft_dims_2048 import resnet50_ft, Resnet50_ft
 from pre_trained_models.resnet50_128_pytorch.resnet50_128 import resnet50_128, Resnet50_128
 from pre_trained_models.senet50_256_pytorch.senet50_256 import senet50_256, Senet50_256
+from pre_trained_models.senet50_pytorch.senet50_ft_dims_2048 import senet50_ft, Senet50_ft
 from utils import *
 
 
@@ -36,10 +37,13 @@ class SiameseNetwork(nn.Module):
             root_folder / 'pre_trained_models_weights' / 'resnet50_128_pytorch' / 'resnet50_128.pth')
         senet50_256_model = senet50_256(
             root_folder / 'pre_trained_models_weights' / 'senet50_256_pytorch' / 'senet50_256.pth')
+        senet50_model = senet50_ft(
+            root_folder / 'pre_trained_models_weights' / 'senet50_pytorch' / 'senet50_ft_dims_2048.pth')
 
         pretrained_model = resnet50_model
         # pretrain  ed_model = resnet50_128_model
         # pretrained_model = senet50_256_model
+        # pretrained_model = senet50_model
 
         self.features = pretrained_model
         # throw away last layer ("classifier") in resnet50:
@@ -51,6 +55,9 @@ class SiameseNetwork(nn.Module):
             num_features = 128
         elif isinstance(self.features, Senet50_256):
             num_features = self.features.feat_extract.in_channels
+        elif isinstance(self.features, Senet50_ft):
+            num_features = self.features.classifier.in_channels
+            self.features._modules.popitem()
         print("features space size: {}".format(num_features))
         # common part ('siamese')
         # self.model.classifier = self.model.classifier[:-1]
@@ -79,7 +86,6 @@ class SiameseNetwork(nn.Module):
         self.fla = Flatten()
         self.ap = nn.AdaptiveAvgPool2d((1, 1))
         self.mp = nn.AdaptiveMaxPool2d((1, 1))
-
 
         if hyper_params["melt_params"]:
             for param in self.features.parameters():
@@ -110,7 +116,6 @@ class SiameseNetwork(nn.Module):
         f1_ = torch.mul(f1, f1)
         f2_ = torch.mul(f2, f2)
         f4 = torch.sub(f1_, f2_)
-        f4 = torch.mul(f4, f4)
 
         f5 = torch.mul(f1, f2)
 

@@ -51,9 +51,10 @@ publicScoreIdx = fields.index('publicScore')
 privateScoreIdx = fields.index('privateScore')
 filenameIdx = fields.index('fileName')
 urlIdx = fields.index('url')
+submittedByIdx = fields.index('submittedBy')
 
 # filter previous auto ensembles
-submissions = list(filter(lambda s: not s[filenameIdx].startswith('auto_en_') and not s[filenameIdx].startswith('en'), submissions))
+submissions = list(filter(lambda s: not s[filenameIdx] == 'auto_en.csv' and not s[filenameIdx].startswith('auto_en_') and not s[filenameIdx].startswith('en') and not s[filenameIdx].startswith('1'), submissions))
 
 # filter submission with 'None' result
 submissions = list(filter(lambda s: s[publicScoreIdx] != 'None', submissions))
@@ -66,7 +67,7 @@ score = 'public'  # 'public' or 'private'
 func = 'l1'  # 'mean', 'wmean', 'l1', 'l2', 'certainty'
 
 score_vec = publicScore if score == 'public' else privateScore
-K = 30
+K = 60
 threshold = 0.85
 p_certainty = 0.5
 mean_certain = True
@@ -87,10 +88,14 @@ for si, s in enumerate(selected_submissions):
     filePath = root_folder / 'submissions_files' / s[filenameIdx]
     fileExists = os.path.exists(filePath)
     if not fileExists:
+        print('Missing: ' + s[filenameIdx] + ' by ' + s[submittedByIdx])
         continue
     submissions_paths.append(str(filePath))
     submissions_names.append(str(s[filenameIdx]))
     selected_scores.append(s[publicScoreIdx] if score == 'public' else s[privateScoreIdx])
+
+print('Using ' + str(len(selected_scores)) + ' submissions')
+print(submissions_names)
 
 selected_scores = np.array(selected_scores, dtype=float)
 weights = selected_scores / np.sum(selected_scores)

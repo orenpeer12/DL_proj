@@ -46,33 +46,33 @@ root_folder = Path(os.getcwd())
 os.environ["KAGGLE_CONFIG_DIR"] = str(root_folder / '..')
 # endregion
 
-val_sets = ["F07", "F08", "F09"]
-# val_sets = ["F09"]
+# val_sets = ["F07", "F08", "F09"]
+val_sets = ["F09"]
 # dataset_version = 'data_mod'
 dataset_version = 'data'
 # For now, ensembles are different in val-sets.
 # region Hyper Parameters
 hyper_params = {
     "equal_sampling": 1,  # whether to sample equally from each class in each batch
-    "init_lr": 5e-4,
+    "init_lr": 1e-5,
     "min_lr": 5e-8,
     "max_lr": 1,
     "lambda_lr": False,
     "lambda_lr_mode": "triangular2",
     "lr_step_size": 10,
     "dropout_rate": 0.2,
-    "BATCH_SIZE": 40,
-    "NUMBER_EPOCHS": 100,
+    "BATCH_SIZE": 32,
+    "NUMBER_EPOCHS": 200,
     "weight_decay": 1e-5,
     "decay_lr": True,
-    "lr_decay_factor": 0.1,
+    "lr_decay_factor": 0.2,
     "lr_patience": 15,  # decay every X epochs without improve
-    "es_patience": 150,
+    "es_patience": 25,
     "es_delta": 0.0001,
     "melt_params": False,
     "melt_rate": 5,
     "melt_ratio": 0.5,
-    "comments": "changed f4 to f4^2",
+    # "comments": "using abs",
     "dataset_version": dataset_version
 }
 print("Hyper parameters:", hyper_params)
