@@ -54,7 +54,7 @@ urlIdx = fields.index('url')
 submittedByIdx = fields.index('submittedBy')
 
 # filter previous auto ensembles
-submissions = list(filter(lambda s: not s[filenameIdx] == 'auto_en.csv' and not s[filenameIdx].startswith('auto_en_') and not s[filenameIdx].startswith('en') and not s[filenameIdx].startswith('1'), submissions))
+submissions = list(filter(lambda s: not s[filenameIdx] == 'final_model.csv' and not s[filenameIdx] == 'auto_en.csv' and not s[filenameIdx].startswith('auto_en_') and not s[filenameIdx].startswith('en') and not s[filenameIdx].startswith('1'), submissions))
 
 # filter submission with 'None' result
 submissions = list(filter(lambda s: s[publicScoreIdx] != 'None', submissions))
